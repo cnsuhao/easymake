@@ -2,14 +2,16 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 1.03
+# emake.py - emake version 2.00
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
-# 2009.11.14   skywind   add install() method
+# 2009.11.14   skywind   new install() method
 # 2009.12.22   skywind   implementation execute interface
-# 2010.01.18   skywind   add project info
+# 2010.01.18   skywind   new project info
 # 2010.03.14   skywind   fixed source lex bug
+# 2010.11.03   skywind   new 'import' to import config section 
+# 2010.11.04   skywind   new 'export' to export .def, .lib for windll
 #
 #======================================================================
 import sys
@@ -274,6 +276,7 @@ class configure(object):
 		self.unix = 1
 		if sys.platform[:3] == 'win':
 			self.unix = 0
+			self._initwin()
 		self.reset()
 	
 	# 配置信息复位
@@ -285,6 +288,43 @@ class configure(object):
 		self.link = {}
 		self.param_build = ''
 		self.param_compile = ''
+	
+	# 初始化 GetShortPathName
+	def _initwin (self):
+		self.kernel32 = None
+		self.textdata = None
+		self.GetShortPathName = None
+		try:
+			import ctypes
+			self.kernel32 = ctypes.windll.LoadLibrary("kernel32.dll")
+			self.textdata = ctypes.create_string_buffer('\000' * 1024)
+			self.GetShortPathName = self.kernel32.GetShortPathNameA
+			args = [ ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int ]
+			self.GetShortPathName.argtypes = args
+			self.GetShortPathName.restype = ctypes.c_uint32
+		except: pass
+		self.msvc = ''
+		for path in os.environ.get('PATH', '').split(';'):
+			condition = True
+			for name in [ 'cl.exe', 'link.exe', 'lib.exe' ]:
+				if not os.path.exists(os.path.join(path, name)):
+					condition = False
+			if condition and (not self.msvc):
+				self.msvc = path
+		if self.GetShortPathName and self.msvc:
+			self.msvc = self.pathshort(self.msvc)
+	
+	# 取得短文件名
+	def pathshort (self, path):
+		path = os.path.abspath(path)
+		if self.unix:
+			return path
+		retval = self.GetShortPathName(path, self.textdata, 1024)
+		shortpath = self.textdata.value
+		if retval <= 0:
+			return ''
+		return shortpath
+		
 	
 	# 读取ini文件
 	def _readini (self, inipath):
@@ -377,15 +417,20 @@ class configure(object):
 		return name
 	
 	# 取得短路径：当前路径的相对路径
-	def pathsort (self, name):
+	def pathrel (self, name):
+		name = os.path.abspath(name)
+		if 'relpath' in os.__dict__:
+			name = os.path.relpath(name, os.getcwd())
+			name = self.pathtext(name)
+			return name
 		current = os.getcwd().replace('\\', '/')
 		if len(current) > 0:
-			if current[-1] != '/':
-				current += '/'
+				if current[-1] != '/':
+						current += '/'
 		name = self.path(name).replace('\\', '/')
 		size = len(current)
 		if name[:size] == current:
-			name = name[size:]
+				name = name[size:]
 		name = self.pathtext(name)
 		return name
 	
@@ -524,9 +569,15 @@ class configure(object):
 	# 执行GNU工具集
 	def execute (self, binname, parameters, printcmd = False):
 		path = os.path.abspath(os.path.join(self.dirhome, 'bin', binname))
+		if not self.unix:
+			name = self.pathshort(path)
+			if (not name) and os.path.exists(path + '.exe'):
+				name = self.pathshort(path + '.exe')
+			if name: path = name
 		cmd = '%s %s'%(self.pathtext(path), parameters)
+		#printcmd = True
 		if printcmd:
-			print cmd
+			print '>', cmd
 		sys.stdout.flush()
 		sys.stderr.flush()
 		os.system(cmd)
@@ -541,24 +592,60 @@ class configure(object):
 
 	# 编译
 	def compile (self, srcname, objname, printcmd = False):
-		cmd = '-c %s -o %s'%(self.pathsort(srcname), self.pathsort(objname))
+		cmd = '-c %s -o %s'%(self.pathrel(srcname), self.pathrel(objname))
 		self.gcc(cmd, False, printcmd)
+	
+	# 使用 dllwrap
+	def dllwrap (self, parameters, printcmd = False):
+		text = ''
+		for lib in self.lib:
+			text += '-L%s '%lib
+		for link in self.link:
+			text += '%s '%link
+		parameters = '%s %s'%(parameters, text)
+		self.execute('dllwrap', parameters, printcmd)
 	
 	# 生成lib库
 	def makelib (self, output, objs = [], printcmd = False):
-		name = ' '.join([ self.pathsort(n) for n in objs ])
-		parameters = 'crv %s %s'%(self.pathsort(output), name)
+		name = ' '.join([ self.pathrel(n) for n in objs ])
+		parameters = 'crv %s %s'%(self.pathrel(output), name)
 		self.execute('ar', parameters, printcmd)
 	
 	# 生成动态链接：dll 或者 so
-	def makedll (self, output, obj = [], printcmd = False):
-		name = ' '.join([ self.pathsort(n) for n in objs ])
+	def makedll (self, output, objs = [], param = '', printcmd = False):
+		if (not param) or (self.unix):
+			param = '--shared -fpic'
+			self.makeexe(output, objs, param, printcmd)
+		else:
+			name = ' '.join([ self.pathrel(n) for n in objs ])
+			parameters = '%s -o %s %s'%(param, 
+				self.pathrel(output), name)
+			self.dllwrap(parameters, printcmd)
 	
 	# 生成exe
 	def makeexe (self, output, objs = [], param = '', printcmd = False):
-		name = ' '.join([ self.pathsort(n) for n in objs ])
-		parameters = '-o %s %s %s'%(self.pathsort(output), param, name)
+		name = ' '.join([ self.pathrel(n) for n in objs ])
+		parameters = '-o %s %s %s'%(self.pathrel(output), param, name)
 		self.gcc(parameters, True, printcmd)
+
+	# 运行VC工具
+	def msvcexe (self, binname, parameters, printcmd = False):
+		if self.unix:
+			return -1
+		if not self.msvc:
+			msg = '%s: error: can not find msvc environment !!'%binname
+			msg = msg + ' run vcvars32.bat first !!\n'
+			sys.stderr.write(msg)
+			sys.stderr.flush()
+			return -2
+		path = os.path.join(self.msvc, binname)
+		cmd = '%s %s'%(path, parameters)
+		if printcmd:
+			print '>', cmd
+		sys.stdout.flush()
+		sys.stderr.flush()
+		os.system(cmd)
+		return 0
 
 
 #----------------------------------------------------------------------
@@ -582,6 +669,7 @@ class coremake(object):
 		self._mode = 'exe'	# exe win dll lib
 		self._src = []		# 源代码
 		self._obj = []		# 目标文件
+		self._export = {}	# DLL导出配置
 		
 	# 初始化：设置工程名字，类型，以及中间文件的目录
 	def init (self, out = 'a.out', mode = 'exe', intermediate = ''):
@@ -669,6 +757,69 @@ class coremake(object):
 		except: pass
 		return 0
 	
+	# DLL配置
+	def dllwrap (self, name):
+		if sys.platform[:3] != 'win':
+			return -1
+		if self._mode != 'dll':
+			return -2
+		name = name.lower()
+		main = os.path.splitext(os.path.abspath(self._out))[0]
+		main = os.path.split(main)[-1]
+		main = os.path.abspath(os.path.join(self._int, main))
+		if name == 'def':
+			self._export['def'] = main + '.def'
+		elif name == 'lib':
+			self._export['lib'] = main + '.a'
+		elif name in ('hidden', 'hide', 'none'):
+			self._export['hide'] = 1
+		elif name in ('msvc', 'MSVC'):
+			self._export['def'] = main + '.def'
+			self._export['msvc'] = main + '.lib'
+			self._export['msvc64'] = 0
+		elif name in ('msvc64', 'MSVC64'):
+			self._export['def'] = main + '.def'
+			self._export['msvc'] = main + '.lib'
+			self._export['msvc64'] = 1
+		return 0
+	
+	# DLL export的参数
+	def _dllparam (self):
+		defname = self._export.get('def', '')
+		libname = self._export.get('lib', '')
+		msvclib = self._export.get('msvc', '')
+		hidden = self._export.get('hide', 0)
+		if (not defname) and (not libname):
+			return ''
+		param = ''
+		if not hidden: param += '--export-all '
+		if defname:
+			param += '--output-def %s '%self.config.pathrel(defname)
+		if libname:
+			param += '--implib %s '%self.config.pathrel(libname)
+		return param
+	
+	# DLL 编译完成后的事情
+	def _dllpost (self):
+		defname = self._export.get('def', '')
+		libname = self._export.get('lib', '')
+		msvclib = self._export.get('msvc', '')
+		dllname = self._out
+		if not msvclib:
+			return 0
+		if not os.path.exists(defname):
+			return -1
+		machine = '/machine:i386'
+		msvc64 = self._export.get('msvc64', 0)
+		if msvc64:
+			machine = '/machine:x64'
+		defname = self.config.pathtext(self.config.pathrel(defname))
+		msvclib = self.config.pathtext(self.config.pathrel(msvclib))
+		parameters = '-nologo ' + machine + ' /def:' + defname
+		parameters += ' /out:' + msvclib
+		self.config.msvcexe('LIB.EXE', parameters, False)
+		return 0
+	
 	# 编译：skipexist(是否需要跳过已有的obj文件)
 	def compile (self, skipexist = False, printmode = 0):
 		self.scan()
@@ -689,7 +840,7 @@ class coremake(object):
 			try: os.remove(os.path.abspath(objname))
 			except: pass
 			if printmode & 1:
-				name = self.config.pathsort(srcname)
+				name = self.config.pathrel(srcname)
 				if name[:1] == '"':
 					name = name[1:-1]
 				print name
@@ -719,8 +870,10 @@ class coremake(object):
 			param = '-mwindows'
 			self.config.makeexe(output, self._obj, param, printcmd)
 		elif self._mode == 'dll':
-			param = '--shared -fpic'
-			self.config.makeexe(output, self._obj, param, printcmd)
+			param = self._dllparam()
+			self.config.makedll(output, self._obj, param, printcmd)
+			if param and os.path.exists(output): 
+				self._dllpost()
 		elif self._mode == 'lib':
 			self.config.makelib(output, self._obj, printcmd)
 		if not os.path.exists(output):
@@ -754,6 +907,8 @@ class iparser (object):
 		self.src = []
 		self.inc = []
 		self.lib = []
+		self.imp = []
+		self.exp = []
 		self.link = []
 		self.flag = []
 		self.mode = 'exe'
@@ -766,6 +921,8 @@ class iparser (object):
 		self.incdict = {}
 		self.libdict = {}
 		self.srcdict = {}
+		self.impdict = {}
+		self.expdict = {}
 		self.linkdict = {}
 		self.flagdict = {}
 		self.mainfile = ''
@@ -829,9 +986,24 @@ class iparser (object):
 		return 0
 	
 	# 添加宏定义
-	def push_define (self, define):
-		self.define[define] = 1
+	def push_define (self, define, value = 1):
+		self.define[define] = value
 		return 0
+	
+	# 添加导入配置
+	def push_imp (self, name, fname = '', lineno = -1):
+		if name in self.impdict:
+			return -1
+		self.impdict[name] = len(self.imp)
+		self.imp.append((name, fname, lineno))
+		return 0
+	
+	# 添加输出配置
+	def push_exp (self, name, fname = '', lineno = -1):
+		if name in self.expdict:
+			return -1
+		self.expdict[name] = len(self.exp)
+		self.exp.append((name, fname, lineno))
 	
 	# 分析开始
 	def parse (self, mainfile):
@@ -862,7 +1034,7 @@ class iparser (object):
 		return 0
 	
 	# 取得相对路径
-	def pathsort (self, name, current = ''):
+	def pathrel (self, name, current = ''):
 		if not current:
 			current = os.getcwd()
 		current = current.replace('\\', '/')
@@ -1065,6 +1237,21 @@ class iparser (object):
 			self.mode = command[-3:]
 			retval = self._process_src(body, fname, lineno)
 			return retval
+		if command in ('imp', 'import'):
+			for name in body.replace(';', ',').split(','):
+				name = self.pathconf(name)
+				if not name:
+					continue
+				self.push_imp(name, fname, lineno)
+			return 0
+		if command in ('exp', 'export'):
+			self.dllexp = 'yes'
+			for name in body.replace(';', ',').split(','):
+				name = self.pathconf(name).lower()
+				if not name:
+					continue
+				self.push_exp(name, fname, lineno)
+			return 0
 		self.error('error: %s: invalid command'%command, fname, lineno)
 		return -1
 	
@@ -1252,7 +1439,8 @@ class emake (object):
 		#print 'open', parser.out, parser.mode, parser.int
 		for src in self.parser:
 			self.coremake.push(src)
-		self._config()
+		if self._config() != 0:
+			return -2
 		self.dependence.process()
 		self.loaded = 1
 		return 0
@@ -1273,6 +1461,14 @@ class emake (object):
 		for pdef in self.parser.define:
 			self.config.push_pdef(pdef)
 			#print 'pdef', pdef
+		for name, fname, lineno in self.parser.imp:
+			if not name in self.config.config:
+				self.parser.error('error: %s: No such config section'%name, \
+					fname, lineno)
+				return -1
+			self.config.refresh(name)
+		for name, fname, lineno in self.parser.exp:
+			self.coremake.dllwrap(name)
 		self.config.parameters()
 		return 0
 	
@@ -1454,7 +1650,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		print 'usage: "emake.py [option] srcfile" (emake v1.04 Mar.14 2010)'
+		print 'usage: "emake.py [option] srcfile" (emake v2.00 Nov.4 2010)'
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
 		print '            -l | -link       link project'
