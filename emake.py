@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 2.00
+# emake.py - emake version 2.01
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -1614,8 +1614,8 @@ def install():
 #----------------------------------------------------------------------
 def execute(filename):
 	path = os.path.abspath(filename)
-	base = os.path.split(filename)[0]
-	name = os.path.split(filename)[1]
+	base = os.path.split(path)[0]
+	name = os.path.split(path)[1]
 	save = os.getcwd()
 	os.chdir(base)
 	part = os.path.splitext(name)
@@ -1650,7 +1650,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		print 'usage: "emake.py [option] srcfile" (emake v2.00 Nov.4 2010)'
+		print 'usage: "emake.py [option] srcfile" (emake v2.01 Nov.13 2010)'
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
 		print '            -l | -link       link project'
