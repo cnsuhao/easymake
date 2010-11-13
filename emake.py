@@ -329,6 +329,8 @@ class configure(object):
 	# ¶ÁÈ¡iniÎÄ¼ş
 	def _readini (self, inipath):
 		self.cp = ConfigParser.ConfigParser()
+		if self.unix and '~' in inipath:
+			inipath = os.path.expanduser(inipath)
 		if os.path.exists(inipath):
 			try: self.cp.read(inipath)
 			except: pass
