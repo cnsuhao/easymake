@@ -12,6 +12,7 @@
 # 2010.03.14   skywind   fixed source lex bug
 # 2010.11.03   skywind   new 'import' to import config section 
 # 2010.11.04   skywind   new 'export' to export .def, .lib for windll
+# 2010.11.27   skywind   fixed link sequence with -Xlink -( -)
 #
 #======================================================================
 import sys
@@ -563,9 +564,10 @@ class configure(object):
 		for pdef in self.pdef:
 			text += '-D%s '%pdef
 		self.param_compile = text.strip(' ')
+		text = '-Xlinker -( '
 		for link in self.link:
 			text += '%s '%link
-		self.param_build = text.strip(' ')
+		self.param_build = self.param_compile + ' ' + text + ' -Xlinker -)'
 		return text
 	
 	# 执行GNU工具集
@@ -627,6 +629,7 @@ class configure(object):
 	# 生成exe
 	def makeexe (self, output, objs = [], param = '', printcmd = False):
 		name = ' '.join([ self.pathrel(n) for n in objs ])
+		name = '-Xlinker -( ' + name + ' -Xlinker -)'
 		parameters = '-o %s %s %s'%(self.pathrel(output), param, name)
 		self.gcc(parameters, True, printcmd)
 
@@ -1610,6 +1613,47 @@ def install():
 	print '/usr/local/bin/emake'
 	return 0
 
+def update():
+	url = 'http://easymake.googlecode.com/svn/trunk/emake.py'
+	if sys.platform[:3] == 'win':
+		print 'error: install must under unix'
+		return -1
+	name2 = '/usr/local/bin/emake.py'
+	name3 = '/usr/local/bin/emake'
+	import urllib
+	print 'fetching ' + url
+	try: content = urllib.urlopen(url).read()
+	except:
+		print 'cannot read from the url for http error'
+		return -2
+	fp = open(name2, 'r')
+	source = fp.read()
+	fp.close()
+	if source == content:
+		print 'you have the latest emake'
+		return -3
+	try:
+		f2 = open(name2, 'w')
+	except:
+		print 'error: cannot write "%s"'%name2
+		return -4
+	try:
+		f3 = open(name3, 'w')
+	except:
+		print 'error: cannot write "%s"'%name3
+		f2.close()
+		return -5
+	f2.write(content)
+	f3.write(content)
+	f2.close()
+	f3.close()
+	os.system('chmod 755 /usr/local/bin/emake.py')
+	os.system('chmod 755 /usr/local/bin/emake')
+	os.system('chown root /usr/local/bin/emake.py 2> /dev/nul')
+	os.system('chown root /usr/local/bin/emake 2> /dev/nul')
+	print 'update successful !'
+	return 0
+
 
 #----------------------------------------------------------------------
 # execute program
@@ -1657,8 +1701,9 @@ def main():
 		print '            -c | -compile    compile project'
 		print '            -l | -link       link project'
 		print '            -r | -rebuild    rebuild project'
-		print '            -i | -install    install emake on unix'
 		print '            -e | -execute    call the execution of the src'
+		print '            -i | -install    install emake on unix'
+		print '            -u | -update     update itself from google code'
 		return 0
 
 	cmd, name = 'build', ''
@@ -1667,6 +1712,9 @@ def main():
 		name = sys.argv[1].strip(' ')
 		if name in ('-i', '--i', '-install', '--install'):
 			install()
+			return 0
+		if name in ('-u', '--u', '-update', '--update'):
+			update()
 			return 0
 
 	if len(sys.argv) >= 3:
