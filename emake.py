@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 2.02
+# emake.py - emake version 2.03
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -564,10 +564,10 @@ class configure(object):
 		for pdef in self.pdef:
 			text += '-D%s '%pdef
 		self.param_compile = text.strip(' ')
-		text = '-Xlinker -( '
+		text = '-Xlinker "-(" '
 		for link in self.link:
 			text += '%s '%link
-		self.param_build = self.param_compile + ' ' + text + ' -Xlinker -)'
+		self.param_build = self.param_compile + ' ' + text + ' -Xlinker "-)"'
 		return text
 	
 	# 执行GNU工具集
@@ -629,7 +629,7 @@ class configure(object):
 	# 生成exe
 	def makeexe (self, output, objs = [], param = '', printcmd = False):
 		name = ' '.join([ self.pathrel(n) for n in objs ])
-		name = '-Xlinker -( ' + name + ' -Xlinker -)'
+		name = '-Xlinker "-(" ' + name + ' -Xlinker "-)"'
 		parameters = '-o %s %s %s'%(self.pathrel(output), param, name)
 		self.gcc(parameters, True, printcmd)
 
@@ -1696,7 +1696,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		print 'usage: "emake.py [option] srcfile" (emake v2.02 Nov.27 2010)'
+		print 'usage: "emake.py [option] srcfile" (emake v2.03 Nov.27 2010)'
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
 		print '            -l | -link       link project'
