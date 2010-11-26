@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 2.01
+# emake.py - emake version 2.02
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -1696,7 +1696,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		print 'usage: "emake.py [option] srcfile" (emake v2.01 Nov.13 2010)'
+		print 'usage: "emake.py [option] srcfile" (emake v2.02 Nov.27 2010)'
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
 		print '            -l | -link       link project'
