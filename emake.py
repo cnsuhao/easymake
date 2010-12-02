@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 2.03
+# emake.py - emake version 2.04
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -1613,45 +1613,50 @@ def install():
 	print '/usr/local/bin/emake'
 	return 0
 
+def __update_file(name, content):
+	source = ''
+	try: 
+		fp = open(name, 'r')
+		source = fp.read()
+		fp.close()
+	except:
+		source = ''
+	if content == source:
+		print '%s up-to-date'%name
+		return 0
+	try:
+		fp = open(name, 'w')
+		fp.write(content)
+		fp.close()
+	except:
+		print 'can not write to %s'%name
+		return -1
+	print '%s update succeeded'%name
+	return 1
+
 def update():
 	url = 'http://easymake.googlecode.com/svn/trunk/emake.py'
-	if sys.platform[:3] == 'win':
-		print 'error: install must under unix'
-		return -1
-	name2 = '/usr/local/bin/emake.py'
-	name3 = '/usr/local/bin/emake'
 	import urllib
 	print 'fetching ' + url
 	try: content = urllib.urlopen(url).read()
 	except:
 		print 'cannot read from the url for http error'
 		return -2
-	fp = open(name2, 'r')
-	source = fp.read()
-	fp.close()
-	if source == content:
-		print 'you have the latest emake'
-		return -3
-	try:
-		f2 = open(name2, 'w')
-	except:
-		print 'error: cannot write "%s"'%name2
-		return -4
-	try:
-		f3 = open(name3, 'w')
-	except:
-		print 'error: cannot write "%s"'%name3
-		f2.close()
-		return -5
-	f2.write(content)
-	f3.write(content)
-	f2.close()
-	f3.close()
-	os.system('chmod 755 /usr/local/bin/emake.py')
-	os.system('chmod 755 /usr/local/bin/emake')
-	os.system('chown root /usr/local/bin/emake.py 2> /dev/nul')
-	os.system('chown root /usr/local/bin/emake 2> /dev/nul')
-	print 'update successful !'
+	name1 = os.path.abspath(sys.argv[0])
+	name2 = '/usr/local/bin/emake.py'
+	name3 = '/usr/local/bin/emake'
+	__update_file(name1, content)
+	if sys.platform[:3] == 'win':
+		return 0
+	r1 = __update_file(name2, content)
+	r2 = __update_file(name3, content)
+	if r1 > 0:
+		os.system('chmod 755 /usr/local/bin/emake.py')
+		os.system('chown root /usr/local/bin/emake.py 2> /dev/nul')
+	if r2 > 0:
+		os.system('chmod 755 /usr/local/bin/emake')
+		os.system('chown root /usr/local/bin/emake 2> /dev/nul')
+	print 'update finished !'
 	return 0
 
 
@@ -1696,7 +1701,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		print 'usage: "emake.py [option] srcfile" (emake v2.03 Nov.27 2010)'
+		print 'usage: "emake.py [option] srcfile" (emake v2.04 Dec.02 2010)'
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
 		print '            -l | -link       link project'
