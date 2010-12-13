@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 2.04
+# emake.py - emake version 2.05
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -275,9 +275,12 @@ class configure(object):
 		self.config = {}
 		self.cp = ConfigParser.ConfigParser()
 		self.unix = 1
+		self.xlink = 1
 		if sys.platform[:3] == 'win':
 			self.unix = 0
 			self._initwin()
+		if sys.platform[:6] == 'darwin':
+			self.xlink = 0
 		self.reset()
 	
 	# 配置信息复位
@@ -564,10 +567,16 @@ class configure(object):
 		for pdef in self.pdef:
 			text += '-D%s '%pdef
 		self.param_compile = text.strip(' ')
-		text = '-Xlinker "-(" '
+		text = ''
+		if self.xlink:
+			text = '-Xlinker "-(" '
 		for link in self.link:
 			text += '%s '%link
-		self.param_build = self.param_compile + ' ' + text + ' -Xlinker "-)"'
+		if self.xlink:
+			text += ' -Xlinker "-)"'
+		else:
+			text = text + ' ' + text
+		self.param_build = self.param_compile + ' ' + text
 		return text
 	
 	# 执行GNU工具集
@@ -629,7 +638,8 @@ class configure(object):
 	# 生成exe
 	def makeexe (self, output, objs = [], param = '', printcmd = False):
 		name = ' '.join([ self.pathrel(n) for n in objs ])
-		name = '-Xlinker "-(" ' + name + ' -Xlinker "-)"'
+		if self.xlink:
+			name = '-Xlinker "-(" ' + name + ' -Xlinker "-)"'
 		parameters = '-o %s %s %s'%(self.pathrel(output), param, name)
 		self.gcc(parameters, True, printcmd)
 
@@ -1701,7 +1711,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		print 'usage: "emake.py [option] srcfile" (emake v2.04 Dec.02 2010)'
+		print 'usage: "emake.py [option] srcfile" (emake v2.05 Dec.13 2010)'
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
 		print '            -l | -link       link project'
