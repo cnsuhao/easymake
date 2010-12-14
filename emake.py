@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 2.05
+# emake.py - emake version 2.06
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -1623,8 +1623,13 @@ def install():
 	print '/usr/local/bin/emake'
 	return 0
 
+__updated_files = {}
+
 def __update_file(name, content):
 	source = ''
+	name = os.path.abspath(name)
+	if name in __updated_files:
+		return 0
 	try: 
 		fp = open(name, 'r')
 		source = fp.read()
@@ -1641,6 +1646,7 @@ def __update_file(name, content):
 	except:
 		print 'can not write to %s'%name
 		return -1
+	__updated_files[name] = 1
 	print '%s update succeeded'%name
 	return 1
 
@@ -1662,10 +1668,10 @@ def update():
 	r2 = __update_file(name3, content)
 	if r1 > 0:
 		os.system('chmod 755 /usr/local/bin/emake.py')
-		os.system('chown root /usr/local/bin/emake.py 2> /dev/nul')
+		os.system('chown root /usr/local/bin/emake.py 2> /dev/null')
 	if r2 > 0:
 		os.system('chmod 755 /usr/local/bin/emake')
-		os.system('chown root /usr/local/bin/emake 2> /dev/nul')
+		os.system('chown root /usr/local/bin/emake 2> /dev/null')
 	print 'update finished !'
 	return 0
 
@@ -1711,7 +1717,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		print 'usage: "emake.py [option] srcfile" (emake v2.05 Dec.13 2010)'
+		print 'usage: "emake.py [option] srcfile" (emake v2.06 Dec.14 2010)'
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
 		print '            -l | -link       link project'
