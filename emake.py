@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 2.09
+# emake.py - emake version 2.10
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -1662,7 +1662,8 @@ def getemake():
 		content = urllib2.urlopen(url1).read()
 	except urllib2.URLError, e:
 		success = False
-		print 'failed ' + str(e.code)
+		print 'failed '
+		print e
 	if not content: 
 		success = False
 	if success:
@@ -1675,7 +1676,8 @@ def getemake():
 		content = urllib2.urlopen(url2).read()
 	except urllib2.URLError, e:
 		success = False
-		print 'failed ' + str(e.code)
+		print 'failed '
+		print e
 	if success:
 		print 'ok'
 		return content
@@ -1745,7 +1747,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		print 'usage: "emake.py [option] srcfile" (emake v2.09 Dec.15 2010)'
+		print 'usage: "emake.py [option] srcfile" (emake v2.10 Dec.15 2010)'
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
 		print '            -l | -link       link project'
