@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 2.07
+# emake.py - emake version 2.08
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -1650,14 +1650,42 @@ def __update_file(name, content):
 	print '%s update succeeded'%name
 	return 1
 
+def getemake():
+	import urllib2
+	url1 = 'http://easymake.googlecode.com/svn/trunk/emake.py'
+	url2 = 'http://www.joynb.net/php/getemake.php'
+	success = True
+	content = ''
+	print 'fetching ' + url1 + ' ...',;
+	sys.stdout.flush();
+	try:
+		content = urllib2.urlopen(url1).read()
+	except urllib2.URLError, e:
+		success = False
+		print 'failed ' + str(e.code)
+	if not content: 
+		success = False
+	if success:
+		print 'ok'
+		return content
+	success = True
+	print 'fetching ' + url2 + ' ...',;
+	sys.stdout.flush();
+	try:
+		content = urllib2.urlopen(url2).read()
+	except urllib2.URLError, e:
+		success = False
+		print 'failed ' + str(e.code)
+	if success:
+		print 'ok'
+		return content
+	return ''
+
 def update():
-	url = 'http://easymake.googlecode.com/svn/trunk/emake.py'
-	import urllib
-	print 'fetching ' + url
-	try: content = urllib.urlopen(url).read()
-	except:
-		print 'cannot read from the url for http error'
-		return -2
+	content = getemake()
+	if not content:
+		print 'update failed'
+		return -1
 	name1 = os.path.abspath(sys.argv[0])
 	name2 = '/usr/local/bin/emake.py'
 	name3 = '/usr/local/bin/emake'
@@ -1717,7 +1745,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		print 'usage: "emake.py [option] srcfile" (emake v2.07 Dec.14 2010)'
+		print 'usage: "emake.py [option] srcfile" (emake v2.08 Dec.15 2010)'
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
 		print '            -l | -link       link project'
