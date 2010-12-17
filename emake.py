@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 2.10
+# emake.py - emake version 2.11
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -276,6 +276,7 @@ class configure(object):
 		self.cp = ConfigParser.ConfigParser()
 		self.unix = 1
 		self.xlink = 1
+		self.searchdirs = None
 		if sys.platform[:3] == 'win':
 			self.unix = 0
 			self._initwin()
@@ -578,6 +579,54 @@ class configure(object):
 			text = text + ' ' + text
 		self.param_build = self.param_compile + ' ' + text
 		return text
+
+	# gcc 的search-dirs
+	def __searchdirs (self):
+		if self.searchdirs != None:
+			return self.searchdirs
+		path = os.path.abspath(os.path.join(self.dirhome, 'bin/gcc'))
+		if not self.unix:
+			name = self.pathshort(path)
+			if (not name) and os.path.exists(path + '.exe'):
+				name = self.pathshort(path + '.exe')
+			if name: path = name
+		cmdline = path + ' -print-search-dirs'
+		fp = os.popen(cmdline, 'r')
+		data = fp.read()
+		fp.close()
+		fp = None
+		body = ''
+		for line in data.split('\n'):
+			if line[:10] == 'libraries:':
+				body = line[10:].strip('\r\n ')
+				if body[:1] == '=': body = body[1:]
+				break
+		part = []
+		if sys.platform[:3] == 'win': part = body.split(';')
+		else: part = body.split(':')
+		data = []
+		dict = {}
+		for n in part:
+			path = os.path.abspath(os.path.normpath(n))
+			if not path in dict:
+				if os.path.exists(path):
+					data.append(path)
+					dict[path] = 1
+				else:
+					dict[path] = 0
+		self.searchdirs = data
+		return data
+	
+	# 检测库是否存在
+	def checklib (self, name):
+		name = 'lib' + name + '.a'
+		for n in self.__searchdirs():
+			if os.path.exists(os.path.join(n, name)):
+				return True
+		for n in self.lib:
+			if os.path.exists(os.path.join(n, name)):
+				return True
+		return False
 	
 	# 执行GNU工具集
 	def execute (self, binname, parameters, printcmd = False):
@@ -661,6 +710,7 @@ class configure(object):
 		sys.stderr.flush()
 		os.system(cmd)
 		return 0
+
 
 
 #----------------------------------------------------------------------
@@ -1747,7 +1797,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		print 'usage: "emake.py [option] srcfile" (emake v2.10 Dec.15 2010)'
+		print 'usage: "emake.py [option] srcfile" (emake v2.11 Dec.17 2010)'
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
 		print '            -l | -link       link project'
@@ -1863,7 +1913,14 @@ if __name__ == '__main__':
 		make.open('malloc/main.c')
 		make.clean()
 		make.build(3)
-
+	def test7():
+		config = configure()
+		print config.checklib('liblinwei.a')
+		print config.checklib('winmm')
+		print config.checklib('pixia')
+		config.push_lib('d:/dev/local/lib')
+		print config.checklib('pixia')
+	
 	main()
 	#install()
 
