@@ -1915,6 +1915,7 @@ if __name__ == '__main__':
 		make.build(3)
 	def test7():
 		config = configure()
+		config.init()
 		print config.checklib('liblinwei.a')
 		print config.checklib('winmm')
 		print config.checklib('pixia')
