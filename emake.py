@@ -277,9 +277,12 @@ class configure(object):
 		self.unix = 1
 		self.xlink = 1
 		self.searchdirs = None
+		self.environ = {}
+		for n in os.environ:
+			self.environ[n] = os.environ[n]
 		if sys.platform[:3] == 'win':
 			self.unix = 0
-			self._initwin()
+			self.GetShortPathName = None
 		if sys.platform[:6] == 'darwin':
 			self.xlink = 0
 		self.reset()
@@ -294,42 +297,83 @@ class configure(object):
 		self.param_build = ''
 		self.param_compile = ''
 	
-	# 初始化 GetShortPathName
+	# 初始化 MSVC
 	def _initwin (self):
-		self.kernel32 = None
-		self.textdata = None
-		self.GetShortPathName = None
-		try:
-			import ctypes
-			self.kernel32 = ctypes.windll.LoadLibrary("kernel32.dll")
-			self.textdata = ctypes.create_string_buffer('\000' * 1024)
-			self.GetShortPathName = self.kernel32.GetShortPathNameA
-			args = [ ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int ]
-			self.GetShortPathName.argtypes = args
-			self.GetShortPathName.restype = ctypes.c_uint32
-		except: pass
+		msconfig = {}
+		if 'msvc' in self.config:
+			for n in self.config['msvc']:
+				msconfig[n.upper()] = self.config['msvc'][n]
+		for n in msconfig:
+			msconfig[n] = self._expand(msconfig, self.environ, msconfig[n])
 		self.msvc = ''
-		for path in os.environ.get('PATH', '').split(';'):
+		env = msconfig.get('PATH', '') + ';' + self.environ.get('PATH', '')
+		for path in env.split(';'):
 			condition = True
 			for name in [ 'cl.exe', 'link.exe', 'lib.exe' ]:
 				if not os.path.exists(os.path.join(path, name)):
 					condition = False
 			if condition and (not self.msvc):
 				self.msvc = path
-		if self.GetShortPathName and self.msvc:
+		if self.msvc:
 			self.msvc = self.pathshort(self.msvc)
+			for n in msconfig:
+				v = msconfig[n]
+				if not v in os.environ:
+					os.environ[n] = v
+				else:
+					result = {}
+					for x in os.environ[n].split(';'):
+						result[x.strip('\r\n\t ').upper()] = ''
+					for x in v.split(';'):
+						x = x.strip('\r\n\t ')
+						if not x.upper() in result:
+							os.environ[n] += ';' + x
+		return self.msvc
+
+	# 展开配置宏
+	def _expand (self, section, environ, text):
+		if not environ: environ = {}
+		if not section: section = {}
+		if not '%' in text: return text
+		part = text.split('%')
+		if len(part) % 2 == 0: return text
+		lookup = {}
+		for pos in xrange(len(part)):
+			if pos % 2 == 1: lookup[part[pos]] = ''
+		for name in lookup:
+			if name in section:
+				value = self._expand(section, environ, section[name])
+			elif name in environ:
+				value = self._expand(section, environ, environ[name])
+			else:
+				continue
+			text = text.replace('%' + name + '%', value)
+		return text
 	
 	# 取得短文件名
 	def pathshort (self, path):
 		path = os.path.abspath(path)
 		if self.unix:
 			return path
+		if not self.GetShortPathName:
+			self.kernel32 = None
+			self.textdata = None
+			try:
+				import ctypes
+				self.kernel32 = ctypes.windll.LoadLibrary("kernel32.dll")
+				self.textdata = ctypes.create_string_buffer('\000' * 1024)
+				self.GetShortPathName = self.kernel32.GetShortPathNameA
+				args = [ ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int ]
+				self.GetShortPathName.argtypes = args
+				self.GetShortPathName.restype = ctypes.c_uint32
+			except: pass
+		if not self.GetShortPathName:
+			return path
 		retval = self.GetShortPathName(path, self.textdata, 1024)
 		shortpath = self.textdata.value
 		if retval <= 0:
 			return ''
 		return shortpath
-		
 	
 	# 读取ini文件
 	def _readini (self, inipath):
@@ -391,6 +435,8 @@ class configure(object):
 			if self.dirhome[-1] in ('/', '\\', ':'):
 				self.dirhome = self.dirhome[:-1]
 		self.refresh()
+		if not self.unix:
+			self._initwin()
 		return 0
 
 	# 读取配置
@@ -1817,6 +1863,9 @@ def main():
 		if name in ('-u', '--u', '-update', '--update'):
 			update()
 			return 0
+		if name in ('-msvc', '--msvc'):
+			print 'usage: emake.py --msvc [parameters of cl.exe]'
+			return 0
 
 	if len(sys.argv) >= 3:
 		cmd = sys.argv[1].strip(' ').lower()
@@ -1833,6 +1882,16 @@ def main():
 			sys.stdout.write('press enter to continue ...')
 			sys.stdout.flush()
 			n = raw_input()
+		return 0
+
+	if cmd in ('-msvc', '--msvc'):
+		config = configure()
+		config.init()
+		parameters = ''
+		for n in  [ sys.argv[i] for i in xrange(2, len(sys.argv)) ]:
+			if ' ' in n: n = '"' + n + '"'
+			parameters += n + ' '
+		config.msvcexe('cl.exe', parameters)
 		return 0
 
 	if not ((ext in ft1) or (ext in ft2) or (ext in ft3)):
