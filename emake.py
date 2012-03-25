@@ -1089,7 +1089,8 @@ class coremake(object):
 				if name[:1] == '"':
 					name = name[1:-1]
 				if not self._task_finish:
-					print '[%d] %s'%(id, name)
+					#print '[%d] %s'%(id, name)
+					print name
 			sys.stdout.write(output)
 			sys.stdout.flush()
 			mutex.release()
