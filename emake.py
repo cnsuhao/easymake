@@ -2045,7 +2045,7 @@ def main():
 		print '            -r | -rebuild    rebuild project'
 		print '            -e | -execute    execute project'
 		print '            -o | -out        show output file name'
-		print '            -d | -cmdline    call cmdline tool with given environ'
+		print '            -d | -cmdline    call cmdline tool in given environ'
 		print '            -i | -install    install emake on unix'
 		print '            -u | -update     update itself from google code'
 		print '            -h | -help       show help page'
