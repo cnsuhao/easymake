@@ -777,7 +777,7 @@ class configure(object):
 		return self.gcc(parameters, True, printcmd, capture)
 
 	# 运行工具
-	def cmdline (self, sectname, exename, parameters, printcmd = False):
+	def cmdtool (self, sectname, exename, parameters, printcmd = False):
 		envsave = [ (n, os.environ[n]) for n in os.environ ]
 		hr = self._cmdline_init(sectname, exename)
 		if type(hr) != type(''):
@@ -998,7 +998,7 @@ class coremake(object):
 		msvclib = self.config.pathtext(self.config.pathrel(msvclib))
 		parameters = '-nologo ' + machine + ' /def:' + defname
 		parameters += ' /out:' + msvclib
-		self.config.toolexe('msvc', 'LIB.EXE', parameters, False)
+		self.config.cmdtool('msvc', 'LIB.EXE', parameters, False)
 		return 0
 	
 	# 单核编译：skipexist(是否需要跳过已有的obj文件)
@@ -2106,7 +2106,7 @@ def main():
 		for n in [ sys.argv[i] for i in xrange(4, len(sys.argv)) ]:
 			if ' ' in n: n = '"' + n + '"'
 			parameters += n + ' '
-		config.cmdline(envname, exename, parameters)
+		config.cmdtool(envname, exename, parameters)
 		return 0
 
 	if not ((ext in ft1) or (ext in ft2) or (ext in ft3)):
