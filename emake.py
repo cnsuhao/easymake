@@ -13,10 +13,10 @@
 # 2010.11.03   skywind   new 'import' to import config section 
 # 2010.11.04   skywind   new 'export' to export .def, .lib for windll
 # 2010.11.27   skywind   fixed link sequence with -Xlink -( -)
+# 2012.03.26   skywind   multiprocess building system, speed up
 #
 #======================================================================
-import sys
-import os
+import sys, time, os
 import ConfigParser
 
 
@@ -24,6 +24,10 @@ import ConfigParser
 # preprocessor: C/C++ 预处理器
 #----------------------------------------------------------------------
 class preprocessor(object):
+
+	# 初始化预编译器
+	def __init__ (self):
+		self.reset()
 
 	# 生成正文映射，将所有字符串及注释用 "$"和 "`"代替，排除分析干扰
 	def preprocess (self, text):
@@ -181,12 +185,17 @@ class preprocessor(object):
 	# 合并引用的所有头文件，并返回文件依赖，及找不到的头文件
 	def parse_source(self, filename, history_headers, lost_headers):
 		headers = []
+		filename = os.path.abspath(filename)
 		import cStringIO
 		outtext = cStringIO.StringIO()
 		if not os.path.exists(filename):
 			sys.stderr.write('can not open %s\n'%(filename))
 			return outtext.getvalue()
-		content = self.search_reference(filename, headers)
+		if filename in self._references:
+			content, headers = self._references[filename]
+		else:
+			content = self.search_reference(filename, headers)
+			self._references[filename] = content, headers
 		save_cwd = os.getcwd()
 		file_cwd = os.path.dirname(filename)
 		if file_cwd == '':
@@ -199,8 +208,7 @@ class preprocessor(object):
 		headers = available
 		offset = 0
 		for head in headers:
-			name = os.path.realpath(head[0])
-			name = os.path.normcase(os.path.normpath(name))
+			name = os.path.abspath(os.path.normcase(head[0]))
 			if not (name in history_headers):
 				history_headers.append(name)
 				position = len(history_headers) - 1
@@ -248,12 +256,19 @@ class preprocessor(object):
 			outtext = outtext + '\n'
 		return outtext
 
+	# 复位依赖关系
+	def reset (self):
+		self._references = {}
+		return 0
+
 	# 直接返回依赖
-	def dependence (self, filename):
+	def dependence (self, filename, reset = False):
 		head = []
 		lost = []
+		if reset: self.reset()
 		text = self.parse_source(filename, head, lost)
 		return head, lost, text
+	
 
 
 #----------------------------------------------------------------------
@@ -296,42 +311,56 @@ class configure(object):
 		self.link = {}
 		self.param_build = ''
 		self.param_compile = ''
+		self.cpus = 0
 	
-	# 初始化 MSVC
-	def _initwin (self):
-		msconfig = {}
-		if 'msvc' in self.config:
-			for n in self.config['msvc']:
-				msconfig[n.upper()] = self.config['msvc'][n]
-		for n in msconfig:
-			msconfig[n] = self._expand(msconfig, self.environ, msconfig[n])
-		self.msvc = ''
-		env = msconfig.get('PATH', '') + ';' + self.environ.get('PATH', '')
-		for path in env.split(';'):
-			condition = True
-			for name in [ 'cl.exe', 'link.exe', 'lib.exe' ]:
-				if not os.path.exists(os.path.join(path, name)):
-					condition = False
-			if condition and (not self.msvc):
-				self.msvc = path
-		if self.msvc:
-			self.msvc = self.pathshort(self.msvc)
-			for n in msconfig:
-				v = msconfig[n]
-				if not v in os.environ:
+	# 初始化工具环境
+	def _cmdline_init (self, envname, exename):
+		if not envname in self.config:
+			return -1
+		config = self._env_config(envname)
+		PATH = []
+		EXEC = ''
+		sep = self.unix and ':' or ';'
+		envpath = config.get('PATH', '') + sep + self.environ.get('PATH', '')
+		condition = False
+		if os.path.exists(exename):
+			EXEC = exename
+		for path in envpath.split(sep):
+			if path.strip('\r\n\t ') == '':
+				continue
+			path = os.path.abspath(path)
+			if os.path.exists(path):
+				if not path in PATH:
+					PATH.append(path)
+			if not EXEC:
+				name = os.path.join(path, exename)
+				if os.path.exists(name):
+					EXEC = name
+		if not EXEC:
+			return -2
+		config['PATH'] = sep.join(PATH)
+		for n in config:
+			v = config[n]
+			if not n in os.environ:
+				if not n in ('PATH'):
 					os.environ[n] = v
-				else:
-					result = {}
-					for x in os.environ[n].split(';'):
-						result[x.strip('\r\n\t ').upper()] = ''
-					for x in v.split(';'):
-						x = x.strip('\r\n\t ')
-						if not x.upper() in result:
-							os.environ[n] += ';' + x
-		return self.msvc
+		os.environ['PATH'] = config['PATH']
+		if not self.unix:
+			EXEC = self.pathshort(EXEC)
+		return EXEC
+	
+	# 工具加载
+	def _env_config (self, section):
+		config = {}
+		if section in self.config:
+			for n in self.config[section]:
+				config[n.upper()] = self.config[section][n]
+		for n in config:
+			config[n] = self._expand(config, self.environ, n, config[n])
+		return config
 
 	# 展开配置宏
-	def _expand (self, section, environ, text):
+	def _expand (self, section, environ, item, text):
 		if not environ: environ = {}
 		if not section: section = {}
 		if not '%' in text: return text
@@ -341,12 +370,12 @@ class configure(object):
 		for pos in xrange(len(part)):
 			if pos % 2 == 1: lookup[part[pos]] = ''
 		for name in lookup:
-			if name in section:
-				value = self._expand(section, environ, section[name])
+			if (name in section) and (name != item):
+				value = self._expand(section, environ, name, section[name])
 			elif name in environ:
-				value = self._expand(section, environ, environ[name])
+				value = self._expand(section, environ, name, environ[name])
 			else:
-				continue
+				value = ''
 			text = text.replace('%' + name + '%', value)
 		return text
 	
@@ -427,16 +456,16 @@ class configure(object):
 				self.dirhome = avail
 			sys.stderr.flush()
 		if not self.dirhome:
-			sys.stderr.write('error: cannot find gcc/mingw home\n')
-			sys.stderr.write('error: place me in the home dir of mingw\n')
-			raise Exception('cannot find gcc/mingw home')
+			sys.stderr.write('error: gcc/mingw not find !!\n')
+			sys.exit(1)
 		self.dirhome = os.path.abspath(self.dirhome)
-		if len(self.dirhome) > 1:
-			if self.dirhome[-1] in ('/', '\\', ':'):
-				self.dirhome = self.dirhome[:-1]
+		try: 
+			cpus = self._getitem('default', 'cpu', '')
+			intval = int(cpus)
+			self.cpus = intval
+		except:
+			pass
 		self.refresh()
-		if not self.unix:
-			self._initwin()
 		return 0
 
 	# 读取配置
@@ -675,7 +704,7 @@ class configure(object):
 		return False
 	
 	# 执行GNU工具集
-	def execute (self, binname, parameters, printcmd = False):
+	def execute (self, binname, parameters, printcmd = False, capture = False):
 		path = os.path.abspath(os.path.join(self.dirhome, 'bin', binname))
 		if not self.unix:
 			name = self.pathshort(path)
@@ -684,77 +713,98 @@ class configure(object):
 			if name: path = name
 		cmd = '%s %s'%(self.pathtext(path), parameters)
 		#printcmd = True
+		text = ''
 		if printcmd:
-			print '>', cmd
+			if not capture: print '>', cmd
+			else: text = '> ' + cmd + '\n'
 		sys.stdout.flush()
 		sys.stderr.flush()
-		os.system(cmd)
+		if not capture:
+			os.system(cmd)
+			return ''
+		stdin, stdouterr = os.popen4(cmd)
+		text += stdouterr.read()
+		stdin.close()
+		stdouterr.close()
+		return text
 
 	# 调用 gcc
-	def gcc (self, parameters, needlink, printcmd = False):
+	def gcc (self, parameters, needlink, printcmd = False, capture = False):
 		param = self.param_build
 		if not needlink:
 			param = self.param_compile
 		parameters = '%s %s'%(parameters, param)
-		self.execute('gcc', parameters, printcmd)
+		return self.execute('gcc', parameters, printcmd, capture)
 
 	# 编译
-	def compile (self, srcname, objname, printcmd = False):
+	def compile (self, srcname, objname, printcmd = False, capture = False):
 		cmd = '-c %s -o %s'%(self.pathrel(srcname), self.pathrel(objname))
-		self.gcc(cmd, False, printcmd)
+		return self.gcc(cmd, False, printcmd, capture)
 	
 	# 使用 dllwrap
-	def dllwrap (self, parameters, printcmd = False):
+	def dllwrap (self, parameters, printcmd = False, capture = False):
 		text = ''
 		for lib in self.lib:
 			text += '-L%s '%lib
 		for link in self.link:
 			text += '%s '%link
 		parameters = '%s %s'%(parameters, text)
-		self.execute('dllwrap', parameters, printcmd)
+		return self.execute('dllwrap', parameters, printcmd, capture)
 	
 	# 生成lib库
-	def makelib (self, output, objs = [], printcmd = False):
+	def makelib (self, output, objs = [], printcmd = False, capture = False):
 		name = ' '.join([ self.pathrel(n) for n in objs ])
 		parameters = 'crv %s %s'%(self.pathrel(output), name)
-		self.execute('ar', parameters, printcmd)
+		return self.execute('ar', parameters, printcmd, capture)
 	
 	# 生成动态链接：dll 或者 so
-	def makedll (self, output, objs = [], param = '', printcmd = False):
+	def makedll (self, output, objs = [], param = '', printcmd = False, capture = False):
 		if (not param) or (self.unix):
 			param = '--shared -fpic'
-			self.makeexe(output, objs, param, printcmd)
+			return self.makeexe(output, objs, param, printcmd, capture)
 		else:
 			name = ' '.join([ self.pathrel(n) for n in objs ])
 			parameters = '%s -o %s %s'%(param, 
 				self.pathrel(output), name)
-			self.dllwrap(parameters, printcmd)
+			return self.dllwrap(parameters, printcmd, capture)
 	
 	# 生成exe
-	def makeexe (self, output, objs = [], param = '', printcmd = False):
+	def makeexe (self, output, objs = [], param = '', printcmd = False, capture = False):
 		name = ' '.join([ self.pathrel(n) for n in objs ])
 		if self.xlink:
 			name = '-Xlinker "-(" ' + name + ' -Xlinker "-)"'
 		parameters = '-o %s %s %s'%(self.pathrel(output), param, name)
-		self.gcc(parameters, True, printcmd)
+		return self.gcc(parameters, True, printcmd, capture)
 
-	# 运行VC工具
-	def msvcexe (self, binname, parameters, printcmd = False):
-		if self.unix:
-			return -1
-		if not self.msvc:
-			msg = '%s: error: can not find msvc environment !!'%binname
-			msg = msg + ' run vcvars32.bat first !!\n'
-			sys.stderr.write(msg)
+	# 运行工具
+	def cmdline (self, sectname, exename, parameters, printcmd = False):
+		envsave = [ (n, os.environ[n]) for n in os.environ ]
+		hr = self._cmdline_init(sectname, exename)
+		if type(hr) != type(''):
+			if hr == -1:
+				msg = '%s: error: can not find %s environment !!'%sectname
+			else:
+				msg = '%s: error: can not find tool %s !!'%(sectname, exename)
+			sys.stderr.write(msg + '\n')
 			sys.stderr.flush()
 			return -2
-		path = os.path.join(self.msvc, binname)
+		path = hr
 		cmd = '%s %s'%(path, parameters)
 		if printcmd:
 			print '>', cmd
 		sys.stdout.flush()
 		sys.stderr.flush()
 		os.system(cmd)
+		envflag = {}
+		remove = []
+		for n, v in envsave:
+			os.environ[n] = v
+			envflag[n] = True
+		for n in os.environ:
+			if not n in envflag:
+				remove.append(n)
+		for n in remove:
+			del os.environ[n]
 		return 0
 
 
@@ -799,7 +849,7 @@ class coremake(object):
 	def objname (self, srcname, intermediate = ''):
 		part = os.path.splitext(srcname)
 		ext = part[1].lower()
-		if ext in ('.c', '.cpp', '.c', '.cc', '.cxx', '.s', '.asm'):
+		if ext in ('.c', '.cpp', '.c', '.cc', '.cxx', '.s', '.asm', '.m', '.mm'):
 			if intermediate:
 				name = os.path.join(intermediate, os.path.split(part[0])[-1])
 				name = os.path.abspath(name + '.o')
@@ -837,14 +887,30 @@ class coremake(object):
 			else: output += part[1]
 		return output
 	
-	# 扫描目标文件
-	def scan (self):
-		self._obj = [ self.objname(n, self._int) for n in self._src ]
-		return 0
+	# 根据源文件列表取得目标文件列表
+	def scan (self, sources, intermediate = ''):
+		src2obj = {}
+		obj2src = {}
+		for src in sources:
+			obj = self.objname(src, intermediate)
+			if obj in obj2src:
+				p1, p2 = os.path.splitext(obj)
+				index = 1
+				while True:
+					name = '%s%d%s'%(p1, index, p2)
+					if not name in obj2src:
+						obj = name
+						break
+					index += 1
+			src2obj[src] = obj
+			obj2src[obj] = src
+		obj2src = None
+		return src2obj
 	
-	# 添加源文件
-	def push (self, srcname):
+	# 添加源文件和目标文件
+	def push (self, srcname, objname):
 		self._src.append(os.path.abspath(srcname))
+		self._obj.append(os.path.abspath(objname))
 	
 	# 创建目录
 	def mkdir (self, path):
@@ -866,6 +932,10 @@ class coremake(object):
 	def remove (self, path):
 		try: os.remove(path)
 		except: pass
+		if os.path.exists(path):
+			sys.stderr.write('error: cannot remove \'%s\'\n'%path)
+			sys.stderr.flush()
+			sys.exit(0)
 		return 0
 	
 	# DLL配置
@@ -928,19 +998,12 @@ class coremake(object):
 		msvclib = self.config.pathtext(self.config.pathrel(msvclib))
 		parameters = '-nologo ' + machine + ' /def:' + defname
 		parameters += ' /out:' + msvclib
-		self.config.msvcexe('LIB.EXE', parameters, False)
+		self.config.toolexe('msvc', 'LIB.EXE', parameters, False)
 		return 0
 	
-	# 编译：skipexist(是否需要跳过已有的obj文件)
-	def compile (self, skipexist = False, printmode = 0):
-		self.scan()
-		self.mkdir(os.path.abspath(self._int))
+	# 单核编译：skipexist(是否需要跳过已有的obj文件)
+	def _compile_single (self, skipexist, printmode, printcmd):
 		retval = 0
-		printcmd = False
-		if printmode & 4:
-			printcmd = True
-		if printmode & 2:
-			print 'compiling ...'
 		for i in xrange(len(self._src)):
 			srcname = self._src[i]
 			objname = self._obj[i]
@@ -961,10 +1024,98 @@ class coremake(object):
 				break
 		return retval
 	
+	# 多核编译：skipexist(是否需要跳过已有的obj文件)
+	def _compile_threading (self, skipexist, printmode, printcmd, cpus):
+		# 估算编译时间，文件越大假设时间越长，放在最前面
+		ctasks = [ (os.path.getsize(s), s, o) for s, o in zip(self._src, self._obj) ]
+		ctasks.sort()
+		import threading
+		self._task_lock = threading.Lock()
+		self._task_retval = 0
+		self._task_finish = False
+		self._task_queue = ctasks
+		self._task_thread = []
+		self._task_error = ''
+		for n in xrange(cpus):
+			parameters = (skipexist, printmode, printcmd, cpus - 1 - n)
+			th = threading.Thread(target = self._compile_working_thread, args = parameters)
+			self._task_thread.append(th)
+		for th in self._task_thread:
+			th.start()
+		for th in self._task_thread:
+			th.join()
+		self._task_thread = None
+		self._task_lock = None
+		self._task_queue = None
+		for objname in self._obj:
+			if not os.path.exists(objname):
+				self._task_retval = -1
+				break
+		return self._task_retval
+	
+	# 具体编译线程
+	def _compile_working_thread (self, skipexist, printmode, printcmd, id):
+		mutex = self._task_lock
+		while True:
+			weight, srcname, objname = 0, '', ''
+			mutex.acquire()
+			if self._task_finish:
+				mutex.release()
+				break
+			if not self._task_queue:
+				mutex.release()
+				break
+			weight, srcname, objname = self._task_queue.pop()
+			mutex.release()
+			if srcname == objname:
+				continue
+			if skipexist and os.path.exists(objname):
+				continue
+			try: os.remove(os.path.abspath(objname))
+			except: pass
+			timeslap = time.time()
+			output = self.config.compile(srcname, objname, printcmd, True)
+			timeslap = time.time() - timeslap
+			result = True
+			if not os.path.exists(objname):
+				mutex.acquire()
+				self._task_retval = -1
+				self._task_finish = True
+				mutex.release()
+				result = False
+			mutex.acquire()
+			if printmode & 1:
+				name = self.config.pathrel(srcname)
+				if name[:1] == '"':
+					name = name[1:-1]
+				if not self._task_finish:
+					print '[%d] %s'%(id, name)
+			sys.stdout.write(output)
+			sys.stdout.flush()
+			mutex.release()
+			time.sleep(0.01)
+		return 0
+
+	# 编译：skipexist(是否需要跳过已有的obj文件)
+	def compile (self, skipexist = False, printmode = 0, cpus = 0):
+		self.mkdir(os.path.abspath(self._int))
+		printcmd = False
+		if printmode & 4:
+			printcmd = True
+		if printmode & 2:
+			print 'compiling ...'
+		t = time.time()
+		if cpus <= 1:
+			retval = self._compile_single(skipexist, printmode, printcmd)
+		else:
+			retval = self._compile_threading(skipexist, printmode, printcmd, cpus)
+		t = time.time() - t
+		#print 'time', t
+		return retval
+	
 	# 连接：(是否跳过已有的文件)
 	def link (self, skipexist = False, printmode = 0):
 		retval = 0
-		self.scan()
 		printcmd = False
 		if printmode & 4:
 			printcmd = True
@@ -1032,6 +1183,7 @@ class iparser (object):
 		self.incdict = {}
 		self.libdict = {}
 		self.srcdict = {}
+		self.chkdict = {}
 		self.impdict = {}
 		self.expdict = {}
 		self.linkdict = {}
@@ -1053,14 +1205,18 @@ class iparser (object):
 	
 	# 取得迭代器
 	def __iter__ (self):
-		return self.srcdict.__iter__()
+		return self.src.__iter__()
 	
 	# 添加代码
 	def push_src (self, filename):
 		filename = os.path.abspath(filename)
-		if filename in self.srcdict:
+		realname = os.path.normcase(filename)
+		if filename in self.srcdict:	
+			return -1
+		if realname in self.chkdict:
 			return -1
 		self.srcdict[filename] = ''
+		self.chkdict[realname] = ''
 		self.src.append(filename)
 		return 0
 	
@@ -1125,7 +1281,7 @@ class iparser (object):
 		self.home = part[0]
 		self.name = os.path.splitext(part[1])[0]
 		if not (os.path.exists(makefile) or os.path.exists(mainfile)):
-			sys.stderr.write('error: %s cannot be open'%(mainfile))
+			sys.stderr.write('error: %s cannot be open\n'%(mainfile))
 			sys.stderr.flush()
 			return -1
 		if os.path.splitext(mainfile)[1].lower() == '.mak':
@@ -1141,7 +1297,7 @@ class iparser (object):
 		if not self.out:
 			self.out = os.path.splitext(makefile)[0]
 		self.out = self.coremake.outname(self.out, self.mode)
-		self._scan_obj()
+		self._update_obj_names()
 		return 0
 	
 	# 取得相对路径
@@ -1259,7 +1415,7 @@ class iparser (object):
 					fname, lineno)
 				return -1
 			extname = os.path.splitext(absname)[1].lower()
-			if not extname in ('.c', '.cpp', '.cc', '.cxx', '.asm', '.s'):
+			if not extname in ('.c', '.cpp', '.cc', '.cxx', '.asm', '.s', '.o', '.obj', '.m', '.mm'):
 				self.error('error: %s: Unknow file type'%absname)
 				return -2
 			self.push_src(absname)
@@ -1367,9 +1523,10 @@ class iparser (object):
 		return -1
 	
 	# 扫描并确定目标文件
-	def _scan_obj (self):
+	def _update_obj_names (self):
+		src2obj = self.coremake.scan(self.src, self.int)
 		for fn in self.src:
-			obj = self.coremake.objname(fn, self.int)
+			obj = src2obj[fn]
 			self.srcdict[fn] = os.path.abspath(obj)
 		return 0
 
@@ -1532,6 +1689,7 @@ class emake (object):
 		self.dependence = dependence(self.parser)
 		self.config = self.coremake.config
 		self.unix = self.coremake.unix
+		self.cpus = -1
 		self.loaded = 0
 	
 	def reset (self):
@@ -1549,7 +1707,8 @@ class emake (object):
 		self.coremake.init(parser.out, parser.mode, parser.int)
 		#print 'open', parser.out, parser.mode, parser.int
 		for src in self.parser:
-			self.coremake.push(src)
+			obj = self.parser[src]
+			self.coremake.push(src, obj)
 		if self._config() != 0:
 			return -2
 		self.dependence.process()
@@ -1590,14 +1749,20 @@ class emake (object):
 		for src in self.parser:
 			if src in self.dependence._dirty:
 				obj = self.parser[src]
-				self.coremake.remove(obj)
-				dirty += 1
+				if obj != src:
+					self.coremake.remove(obj)
+					dirty += 1
 		if dirty:
 			self.coremake.remove(self.parser.out)
-		retval = self.coremake.compile(True, self.parser.info)
+		cpus = self.config.cpus
+		if self.cpus >= 0:
+			cpus = self.cpus
+		retval = self.coremake.compile(True, self.parser.info, cpus)
 		return retval
 	
 	def link (self, printmode = -1):
+		if not self.loaded:
+			return -10
 		if not self.loaded:
 			return ''
 		update = False
@@ -1615,6 +1780,8 @@ class emake (object):
 		return retval
 	
 	def build (self, printmode = -1):
+		if not self.loaded:
+			return -10
 		retval = self.compile(printmode)
 		if retval != 0:
 			return retval
@@ -1624,17 +1791,37 @@ class emake (object):
 		return 0
 	
 	def clean (self):
+		if not self.loaded:
+			return -10
 		for src in self.parser:
 			obj = self.parser[src]
-			self.coremake.remove(obj)
+			if obj != src:
+				self.coremake.remove(obj)
 		if self.loaded:
 			self.coremake.remove(self.parser.out)
 		return 0
 	
 	def rebuild (self, printmode = -1):
+		if not self.loaded:
+			return -10
 		self.clean()
 		return self.build(printmode)
 
+	def execute (self):
+		if not self.loaded:
+			return -10
+		outname = os.path.abspath(self.parser.out)
+		if not self.parser.mode in ('exe', 'win'):
+			sys.stderr.write('cannot execute: \'%s\'\n'%outname)
+			sys.stderr.flush()
+			return -1
+		if not os.path.exists(outname):
+			sys.stderr.write('cannot find: \'%s\'\n'%outname)
+			sys.stderr.flush()
+			return -2
+		os.system('"%s"'%outname)
+		return 0
+		
 	def info (self, name = ''):
 		name = name.lower()
 		if name == '': name = 'out'
@@ -1650,6 +1837,7 @@ class emake (object):
 				if src in self.dependence._dirty:
 					print src
 		return 0
+	
 
 		
 #----------------------------------------------------------------------
@@ -1801,6 +1989,13 @@ def update():
 	print 'update finished !'
 	return 0
 
+def help():
+	print "Emake v3.01 Mar.24 2012"
+	print "By providing a completely new way to build your projects, Emake"
+	print "is a easy tool which controls the generation of executables and other"
+	print "non-source files of a program from the program's source files. "
+	return 0
+
 
 #----------------------------------------------------------------------
 # execute program
@@ -1843,14 +2038,17 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		print 'usage: "emake.py [option] srcfile" (emake v2.11 Dec.17 2010)'
+		print 'usage: "emake.py [option] srcfile" (emake v3.01 Mar.24 2012)'
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
 		print '            -l | -link       link project'
 		print '            -r | -rebuild    rebuild project'
-		print '            -e | -execute    call the execution of the src'
+		print '            -e | -execute    execute project'
+		print '            -o | -out        show output file name'
+		print '            -d | -cmdline    call cmdline tool with given environ'
 		print '            -i | -install    install emake on unix'
 		print '            -u | -update     update itself from google code'
+		print '            -h | -help       show help page'
 		return 0
 
 	cmd, name = 'build', ''
@@ -1863,35 +2061,51 @@ def main():
 		if name in ('-u', '--u', '-update', '--update'):
 			update()
 			return 0
-		if name in ('-msvc', '--msvc'):
-			print 'usage: emake.py --msvc [parameters of cl.exe]'
+		if name in ('-h', '--h', '-help', '--help'):
+			help()
+			return 0
+	if len(sys.argv) <= 3:
+		if name in ('-d', '-d', '--d', '-cmdline', '--cmdline'):
+			print 'usage: emake.py --cmdline envname exename [parameters]'
+			print 'call the cmdline tool in the given environment:'
+			print '- envname is a section name in emake.ini which defines environ for this tool'
+			print '- exename is the tool\'s executable file name'
 			return 0
 
 	if len(sys.argv) >= 3:
 		cmd = sys.argv[1].strip(' ').lower()
 		name = sys.argv[2]
+
+	printmode = 3
+
+	for i in xrange(3, len(sys.argv)):
+		args = sys.argv[i].split('=', 1)
+		opt = args[0].lower()
+		num = -1
+		if len(args) > 1: 
+			try: num = int(args[1], 0)
+			except: pass
+		if opt in ('-cpu', '--cpu', '-cpus', '--cpus'):
+			make.cpus = num
+		elif opt in ('-print', '--print'):
+			if num >= 0:
+				printmode = num
 	
 	ext = os.path.splitext(name)[-1].lower() 
-	ft1 = ('.c', '.cpp', '.cxx', '.cc')
+	ft1 = ('.c', '.cpp', '.cxx', '.cc', '.m', '.mm')
 	ft2 = ('.h', '.hpp', '.hxx', '.hh', '.inc')
 	ft3 = ('.mak', '.proj', '.prj')
 
-	if cmd in ('e', '-e', '--e', 'execute', '-execute', '--execute'):
-		execute(name)
-		if len(sys.argv) > 3:
-			sys.stdout.write('press enter to continue ...')
-			sys.stdout.flush()
-			n = raw_input()
-		return 0
-
-	if cmd in ('-msvc', '--msvc'):
+	if cmd in ('-d', '-d', '--d', '-cmdline', '--cmdline'):
 		config = configure()
 		config.init()
+		envname = sys.argv[2]
+		exename = sys.argv[3]
 		parameters = ''
-		for n in  [ sys.argv[i] for i in xrange(2, len(sys.argv)) ]:
+		for n in [ sys.argv[i] for i in xrange(4, len(sys.argv)) ]:
 			if ' ' in n: n = '"' + n + '"'
 			parameters += n + ' '
-		config.msvcexe('cl.exe', parameters)
+		config.cmdline(envname, exename, parameters)
 		return 0
 
 	if not ((ext in ft1) or (ext in ft2) or (ext in ft3)):
@@ -1901,20 +2115,23 @@ def main():
 
 	if cmd in ('b', '-b', '--b', 'build', '-build', '--build'):
 		make.open(name)
-		make.build(3)
+		make.build(printmode)
 	elif cmd in ('c', '-c', '--c', 'compile', '-compile', '--compile'):
 		make.open(name)
-		make.compile(3)
+		make.compile(printmode)
 	elif cmd in ('l', '-l', '--l', 'link', '-link', '--link'):
 		make.open(name)
-		make.link(3)
-	elif cmd in ('e', '-e', '--e', 'clean', '-clean', '--clean'):
+		make.link(printmode)
+	elif cmd in ('clean', '-clean', '--clean'):
 		make.open(name)
 		make.clean()
 	elif cmd in ('r', '-r', '--r', 'rebuild', '-rebuild', '--rebuild'):
 		make.open(name)
-		make.rebuild(3)
-	elif cmd in ('d', '-d', '--d', 'detail', '-detail', '--detail'):
+		make.rebuild(printmode)
+	elif cmd in ('e', '-e', '--e', 'execute', '-execute', '--execute'):
+		make.open(name)
+		make.execute()
+	elif cmd in ('o', '-o', '--o', 'out', '-out', '--out'):
 		make.open(name)
 		make.info('outname');
 	elif cmd in ('dirty', '-dirty', '--dirty'):
@@ -1980,6 +2197,15 @@ if __name__ == '__main__':
 		print config.checklib('pixia')
 		config.push_lib('d:/dev/local/lib')
 		print config.checklib('pixia')
+	def test8():
+		sys.argv = [sys.argv[0], '-d', 'msvc', 'cl.exe', '-help' ]
+		main()
+		#os.chdir('d:/acm/aprcode/pixellib/')
+		#os.system('d:/dev/python27/python.exe d:/acm/opensrc/easymake/testing/emake.py -r PixelBitmap.cpp')
+	def test9():
+		sys.argv = ['emake.py', '-t', 'msvc', 'cl.exe', '-help' ]
+		sys.argv = [sys.argv[0], '-t', 'watcom', 'wcl386.exe', '-help' ]
+		main()
 	
 	main()
 	#install()
