@@ -722,10 +722,25 @@ class configure(object):
 		if not capture:
 			os.system(cmd)
 			return ''
-		stdin, stdouterr = os.popen4(cmd)
+		import subprocess
+		if 'Popen' in subprocess.__dict__:
+			import shlex
+			if not self.unix:
+				args = shlex.split(cmd.replace('\\', '/'))
+				args = [ n.replace('/', '\\') for n in args ]
+			else:
+				args = shlex.split(cmd)
+			p = subprocess.Popen(args, shell = False,
+				stdin = subprocess.PIPE, stdout = subprocess.PIPE, 
+				stderr = subprocess.STDOUT)
+			stdin, stdouterr = (p.stdin, p.stdout)
+		else:
+			p = None
+			stdin, stdouterr = os.popen4(cmd)
 		text += stdouterr.read()
 		stdin.close()
 		stdouterr.close()
+		if p: p.wait()
 		return text
 
 	# µ÷ÓÃ gcc
@@ -1106,7 +1121,7 @@ class coremake(object):
 		if printmode & 2:
 			print 'compiling ...'
 		t = time.time()
-		if cpus <= 1:
+		if cpus <= 0:
 			retval = self._compile_single(skipexist, printmode, printcmd)
 		else:
 			retval = self._compile_threading(skipexist, printmode, printcmd, cpus)
@@ -2039,7 +2054,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		print 'usage: "emake.py [option] srcfile" (emake v3.01 Mar.24 2012)'
+		print 'usage: "emake.py [option] srcfile" (emake v3.02 Mar.31 2012)'
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
 		print '            -l | -link       link project'
@@ -2200,6 +2215,7 @@ if __name__ == '__main__':
 		print config.checklib('pixia')
 	def test8():
 		sys.argv = [sys.argv[0], '-d', 'msvc', 'cl.exe', '-help' ]
+		sys.argv = [sys.argv[0], '-r', 'd:/acm/aprcode/pixellib/PixelBitmap.cpp' ]
 		main()
 		#os.chdir('d:/acm/aprcode/pixellib/')
 		#os.system('d:/dev/python27/python.exe d:/acm/opensrc/easymake/testing/emake.py -r PixelBitmap.cpp')
