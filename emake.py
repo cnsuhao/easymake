@@ -1121,7 +1121,7 @@ class coremake(object):
 		if printmode & 2:
 			print 'compiling ...'
 		t = time.time()
-		if cpus <= 0:
+		if cpus <= 1:
 			retval = self._compile_single(skipexist, printmode, printcmd)
 		else:
 			retval = self._compile_threading(skipexist, printmode, printcmd, cpus)
