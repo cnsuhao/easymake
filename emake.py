@@ -775,7 +775,10 @@ class configure(object):
 	# 生成动态链接：dll 或者 so
 	def makedll (self, output, objs = [], param = '', printcmd = False, capture = False):
 		if (not param) or (self.unix):
-			param = '--shared -fpic'
+			if sys.platform[:6] == 'darwin':
+				param = '-dynamiclib -fPIC'
+			else:
+				param = '--shared -fpic'
 			return self.makeexe(output, objs, param, printcmd, capture)
 		else:
 			name = ' '.join([ self.pathrel(n) for n in objs ])
