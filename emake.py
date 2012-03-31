@@ -1916,8 +1916,8 @@ def install():
 	f3.close()
 	os.system('chmod 755 /usr/local/bin/emake.py')
 	os.system('chmod 755 /usr/local/bin/emake')
-	os.system('chown root /usr/local/bin/emake.py 2> /dev/nul')
-	os.system('chown root /usr/local/bin/emake 2> /dev/nul')
+	os.system('chown root /usr/local/bin/emake.py 2> /dev/null')
+	os.system('chown root /usr/local/bin/emake 2> /dev/null')
 	print 'install completed. you can uninstall by deleting the following two files:'
 	print '/usr/local/bin/emake.py'
 	print '/usr/local/bin/emake'
