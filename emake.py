@@ -726,8 +726,8 @@ class configure(object):
 		if 'Popen' in subprocess.__dict__:
 			import shlex
 			if not self.unix:
-				args = shlex.split(cmd.replace('\\', '/'))
-				args = [ n.replace('/', '\\') for n in args ]
+				args = shlex.split(cmd.replace('\\', '\x00'))
+				args = [ n.replace('\x00', '\\') for n in args ]
 			else:
 				args = shlex.split(cmd)
 			p = subprocess.Popen(args, shell = False,
