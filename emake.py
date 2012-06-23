@@ -2203,6 +2203,7 @@ def main():
 	if cmd in ('-d', '-d', '--d', '-cmdline', '--cmdline'):
 		config = configure()
 		config.init()
+		sys.argv += ['', '', '', '', '']
 		envname = sys.argv[2]
 		exename = sys.argv[3]
 		parameters = ''
@@ -2218,6 +2219,7 @@ def main():
 		if not config.cygwin:
 			print 'not find "cygwin" in "default" sect of %s'%config.ininame
 			sys.exit()
+		sys.argv += ['', '', '', '', '']
 		envname = sys.argv[2]
 		exename = sys.argv[3]
 		parameters = ''
@@ -2233,6 +2235,7 @@ def main():
 		if not config.cygwin:
 			print 'not find "cygwin" in "default" sect of %s'%config.ininame
 			sys.exit()
+		sys.argv += ['', '', '', '', '']
 		envname = sys.argv[2]
 		exename = sys.argv[3]
 		parameters = ''
