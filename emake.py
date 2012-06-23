@@ -424,13 +424,13 @@ class configure(object):
 	def init (self):
 		self.config = {}
 		self.reset()
+		self.dirhome = self._getitem('default', 'home', '')
 		if self.unix:
 			self._readini('/etc/%s'%self.ininame)
 			self._readini('/usr/local/etc/%s'%self.ininame)
 			self._readini('~/%s'%self.ininame)
 			self._readini('~/.%s'%os.path.splitext(self.ininame)[0])
 		self._readini(self.inipath)
-		self.dirhome = self._getitem('default', 'home', '')
 		if not self.haveini:
 			#sys.stderr.write('warning: %s cannot be open\n'%(self.ininame))
 			sys.stderr.flush()
