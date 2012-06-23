@@ -293,6 +293,7 @@ class configure(object):
 		self.xlink = 1
 		self.searchdirs = None
 		self.environ = {}
+		self.cygwin = ''
 		for n in os.environ:
 			self.environ[n] = os.environ[n]
 		if sys.platform[:3] == 'win':
@@ -466,6 +467,14 @@ class configure(object):
 		except:
 			pass
 		self.refresh()
+		cygwin = self._getitem('default', 'cygwin')
+		self.cygwin = ''
+		if cygwin and (not self.unix):
+			if os.path.exists(cygwin):
+				cygwin = os.path.abspath(cygwin)
+				bash = os.path.join(cygwin, 'bin/bash.exe')
+				if os.path.exists(bash):
+					self.cygwin = cygwin
 		return 0
 
 	# 读取配置
@@ -521,6 +530,24 @@ class configure(object):
 		if self.unix and path[1:2] == ':':
 			path = '/cygdrive/%s%s'%(path[0], path[2:].replace('\\', '/'))
 		return path
+	
+	# 转换到cygwin路径
+	def win2cyg (self, path):
+		path = os.path.abspath(path)
+		return '/cygdrive/%s%s'%(path[0], path[2:].replace('\\', '/'))
+
+	# 转换回cygwin路径
+	def cyg2win (self, path):
+		if path[1:2] == ':':
+			return os.path.abspath(path)
+		if path.lower().startswith('/cygdrive/'):
+			path = path[10] + ':' + path[11:]
+			return os.path.abspath(path)
+		if not path.startswith('/'):
+			raise Exception('cannot convert path: %s'%path)
+		if not self.cygwin:
+			raise Exception('cannot find cygwin root')
+		return os.path.abspath(os.path.join(self.cygwin, path[1:]))
 
 	# 添加头文件目录
 	def push_inc (self, inc):
@@ -830,7 +857,57 @@ class configure(object):
 		for n in remove:
 			del os.environ[n]
 		return 0
-
+	
+	# 调用 Cygwin Bash
+	def cygwin_bash (self, cmds, capture = False):
+		import subprocess
+		output = ''
+		bashpath = self.pathshort(os.path.join(self.cygwin, 'bin/bash.exe'))
+		if 'Popen' in subprocess.__dict__:
+			args = [ bashpath, '--login' ]
+			outmode = capture and subprocess.PIPE or None
+			p = subprocess.Popen(args, shell = False, \
+				stdin = subprocess.PIPE, stdout = outmode, \
+				stderr = subprocess.STDOUT)
+			stdin, stdouterr = (p.stdin, p.stdout)
+			stdin.write(cmds + '\nexit\n')
+			stdin.flush()
+			if capture:
+				output = stdouterr.read()
+			p.wait()
+		else:
+			p = None
+			stdin, stdouterr = os.popen4('%s --login'%bashpath, 'b')	
+			stdin.write(cmds + '\nexit\n')
+			stdin.flush()
+			output = stdouterr.read()
+			if not capture:
+				sys.stdout.write(output + '\n')
+				sys.stdout.flush()
+		stdin = None
+		stdouterr = None
+		return output
+	
+	# 运行 Cygwin 命令行
+	def cygwin_execute (self, sect, exename, parameters = '', capture = 0):
+		capture = capture and True or False
+		sect = sect.lower()
+		home = self.win2cyg(os.getcwd())
+		cmds = 'export LANG=C\n'
+		if sect in self.config:
+			for n in self.config[sect]:
+				cmds += 'export %s="%s"\n'%(n.upper(), self.config[sect][n])
+		cmds += 'cd "%s"\n'%self.win2cyg(os.getcwd())
+		if exename:
+			exename = self.win2cyg(exename)
+			cmds += '"%s" %s\n'%(exename, parameters)
+		else:
+			cmds += '%s\n'%parameters
+		if 0:
+			print '-' * 72
+			print cmds
+			print '-' * 72
+		return self.cygwin_bash(cmds, capture)
 
 
 #----------------------------------------------------------------------
@@ -2063,7 +2140,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		print 'usage: "emake.py [option] srcfile" (emake v3.02 Mar.31 2012)'
+		print 'usage: "emake.py [option] srcfile" (emake v3.03 Jun.23 2012)'
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
 		print '            -l | -link       link project'
@@ -2071,6 +2148,8 @@ def main():
 		print '            -e | -execute    execute project'
 		print '            -o | -out        show output file name'
 		print '            -d | -cmdline    call cmdline tool in given environ'
+		print '            -g | -cygwin     cygwin execute'
+		print '            -s | -cshell     cygwin shell'
 		print '            -i | -install    install emake on unix'
 		print '            -u | -update     update itself from google code'
 		print '            -h | -help       show help page'
@@ -2131,6 +2210,37 @@ def main():
 			if ' ' in n: n = '"' + n + '"'
 			parameters += n + ' '
 		config.cmdtool(envname, exename, parameters)
+		return 0
+	
+	if cmd in ('-g', '--g', '-cygwin', '--cygwin'):
+		config = configure()
+		config.init()
+		if not config.cygwin:
+			print 'not find "cygwin" in "default" sect of %s'%config.ininame
+			sys.exit()
+		envname = sys.argv[2]
+		exename = sys.argv[3]
+		parameters = ''
+		for n in [ sys.argv[i] for i in xrange(4, len(sys.argv)) ]:
+			if ' ' in n: n = '"' + n + '"'
+			parameters += n + ' '
+		config.cygwin_execute(envname, exename, parameters)
+		return 0
+
+	if cmd in ('-s', '--s', '-cshell', '--cshell'):
+		config = configure()
+		config.init()
+		if not config.cygwin:
+			print 'not find "cygwin" in "default" sect of %s'%config.ininame
+			sys.exit()
+		envname = sys.argv[2]
+		exename = sys.argv[3]
+		parameters = ''
+		for n in [ sys.argv[i] for i in xrange(4, len(sys.argv)) ]:
+			if ' ' in n: n = '"' + n + '"'
+			parameters += n + ' '
+		cmds = '"%s" %s'%(exename, parameters)
+		config.cygwin_execute(envname, '', cmds)
 		return 0
 
 	if not ((ext in ft1) or (ext in ft2) or (ext in ft3)):
@@ -2232,7 +2342,12 @@ if __name__ == '__main__':
 		sys.argv = ['emake.py', '-t', 'msvc', 'cl.exe', '-help' ]
 		sys.argv = [sys.argv[0], '-t', 'watcom', 'wcl386.exe', '-help' ]
 		main()
+	def test10():
+		sys.argv = [sys.argv[0], '-g', 'default', 'd:/dev/flash/alchemy5/tutorials/01_HelloWorld/hello.exe', '--version']
+		main()
 	
+	#test10()
 	main()
 	#install()
+
 
