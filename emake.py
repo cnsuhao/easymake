@@ -603,6 +603,8 @@ class configure(object):
 			if os.path.exists(os.path.join(dirpath, '../bin/gcc.exe')):
 				return os.path.abspath(os.path.join(dirpath, '..'))
 		else:
+			if os.path.exists(os.path.join(dirpath, 'bin/gcc')):
+				return os.path.abspath(os.path.join(dirpath, '.'))
 			if os.path.exists('/bin/gcc'):
 				return '/'
 			if os.path.exists('/usr/bin/gcc'):
