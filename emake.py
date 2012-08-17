@@ -301,18 +301,22 @@ class configure(object):
 			self.GetShortPathName = None
 		if sys.platform[:6] == 'darwin':
 			self.xlink = 0
+		self.cpus = 0
+		self.inited = False
+		self.name = {}
 		self.reset()
 	
 	# 配置信息复位
 	def reset (self):
-		self.inc = {}
-		self.lib = {}
-		self.flag = {}
-		self.pdef = {}
-		self.link = {}
+		self.inc = {}		# include路径
+		self.lib = {}		# lib 路径
+		self.flag = {}		# 编译参数
+		self.pdef = {}		# 预定义宏
+		self.link = {}		# 连接库
+		self.flnk = {}		# 连接参数
 		self.param_build = ''
 		self.param_compile = ''
-		self.cpus = 0
+		return 0
 	
 	# 初始化工具环境
 	def _cmdline_init (self, envname, exename):
@@ -422,15 +426,17 @@ class configure(object):
 
 	# 初始化
 	def init (self):
+		if self.inited:
+			return 0
 		self.config = {}
 		self.reset()
-		self.dirhome = self._getitem('default', 'home', '')
 		if self.unix:
 			self._readini('/etc/%s'%self.ininame)
 			self._readini('/usr/local/etc/%s'%self.ininame)
 			self._readini('~/%s'%self.ininame)
 			self._readini('~/.%s'%os.path.splitext(self.ininame)[0])
 		self._readini(self.inipath)
+		self.dirhome = self._getitem('default', 'home', '')
 		if not self.haveini:
 			#sys.stderr.write('warning: %s cannot be open\n'%(self.ininame))
 			sys.stderr.flush()
@@ -466,7 +472,6 @@ class configure(object):
 			self.cpus = intval
 		except:
 			pass
-		self.refresh()
 		cygwin = self._getitem('default', 'cygwin')
 		self.cygwin = ''
 		if cygwin and (not self.unix):
@@ -475,6 +480,31 @@ class configure(object):
 				bash = os.path.join(cygwin, 'bin/bash.exe')
 				if os.path.exists(bash):
 					self.cygwin = cygwin
+		self.name = {}
+		self.name[sys.platform.lower()] = 1
+		if sys.platform[:3] == 'win':
+			self.name['win'] = 1
+		if sys.platform[:7] == 'freebsd':
+			self.name['freebsd'] = 1
+			self.name['unix'] = 1
+		if sys.platform[:5] == 'linux':
+			self.name['linux'] = 1
+			self.name['unix'] = 1
+		if sys.platform[:6] == 'darwin':
+			self.name['darwin'] = 1
+			self.name['unix'] = 1
+		if os.name == 'posix':
+			self.name['unix'] = 1
+		if os.name == 'nt':
+			self.name['win'] = 1
+		if 'win' in self.name:
+			self.name['nt'] = 1
+		names = self._getitem('default', 'name')
+		if names:
+			for name in names.replace(';', ',').split(','):
+				if not name: continue
+				self.name[name.lower()] = 1
+		self.inited = True
 		return 0
 
 	# 读取配置
@@ -577,7 +607,9 @@ class configure(object):
 	
 	# 添加参数
 	def push_flag (self, flag):
-		self.flag[flag] = 1
+		if not flag in self.flag:
+			self.flag[flag] = len(self.flag)
+		return 0
 	
 	# 添加链接库
 	def push_link (self, link):
@@ -585,12 +617,19 @@ class configure(object):
 			link = self.pathtext(self.path(link))
 		else:
 			link = '-l%s'%link.replace(' ', '_')
-		self.link[link] = 1
+		if not link in self.link:
+			self.link[link] = len(self.link)
 		return 0
 	
 	# 添加预定义
 	def push_pdef (self, define):
 		self.pdef[define] = 1
+	
+	# 添加连接参数
+	def push_flnk (self, flnk):
+		if not flnk in self.flnk:
+			self.flnk[flnk] = len(self.flnk)
+		return 0
 
 	# 搜索gcc
 	def search (self):
@@ -635,7 +674,9 @@ class configure(object):
 		return path
 
 	# 刷新配置
-	def refresh (self, sect = 'default'):
+	def default (self, sect = 'default'):
+		self.reset()
+		self.init()
 		f1 = lambda n: (n[:1] != '\'' or n[-1:] != '\'') and n
 		config = lambda n: self._getitem(sect, n, '')
 		for path in config('include').replace(';', ',').split(','):
@@ -650,38 +691,52 @@ class configure(object):
 			link = self.pathconf(link)
 			if not link: continue
 			self.push_link(link)
-		for flag in config('flag').replace(':', ',').split(','):
+		for flag in config('flag').replace(';', ',').split(','):
 			flag = flag.strip(' \t\r\n')
+			if not flag: continue
 			self.push_flag(flag)
 		for pdef in config('define').replace(';', ',').split(','):
 			pdef = pdef.strip(' \t\r\n')
 			if not pdef: continue
 			self.push_pdef(pdef.replace(' ', '_'))
+		for flnk in config('flnk').replace(';', ',').split(','):
+			flnk = flnk.strip(' \t\r\n')
+			if not flnk: continue
+			self.push_flnk(flnk)
 		self.parameters()
 		return 0
+	
+	# 按字典值顺序取出配置
+	def sequence (self, data):
+		x = [ (n, k) for (k, n) in data.items() ]
+		x.sort()
+		y = [ n for (k, n) in x ]
+		return y
 
 	# 返回序列化的参数	
 	def parameters (self):
 		text = ''
-		for inc in self.inc:
+		for inc in self.sequence(self.inc):
 			text += '-I%s '%inc
-		for lib in self.lib:
+		for lib in self.sequence(self.lib):
 			text += '-L%s '%lib
-		for flag in self.flag:
+		for flag in self.sequence(self.flag):
 			text += '%s '%flag
-		for pdef in self.pdef:
+		for pdef in self.sequence(self.pdef):
 			text += '-D%s '%pdef
 		self.param_compile = text.strip(' ')
 		text = ''
 		if self.xlink:
 			text = '-Xlinker "-(" '
-		for link in self.link:
+		for link in self.sequence(self.link):
 			text += '%s '%link
 		if self.xlink:
 			text += ' -Xlinker "-)"'
 		else:
 			text = text + ' ' + text
 		self.param_build = self.param_compile + ' ' + text
+		for flnk in self.sequence(self.flnk):
+			self.param_build += ' %s'%flnk
 		return text
 
 	# gcc 的search-dirs
@@ -794,10 +849,12 @@ class configure(object):
 	# 使用 dllwrap
 	def dllwrap (self, parameters, printcmd = False, capture = False):
 		text = ''
-		for lib in self.lib:
+		for lib in self.sequence(self.lib):
 			text += '-L%s '%lib
-		for link in self.link:
+		for link in self.sequence(self.link):
 			text += '%s '%link
+		for flnk in self.sequence(self.flnk):
+			text += '%s '%flnk
 		parameters = '%s %s'%(parameters, text)
 		return self.execute('dllwrap', parameters, printcmd, capture)
 	
@@ -811,9 +868,9 @@ class configure(object):
 	def makedll (self, output, objs = [], param = '', printcmd = False, capture = False):
 		if (not param) or (self.unix):
 			if sys.platform[:6] == 'darwin':
-				param = '-dynamiclib -fPIC'
+				param = '-dynamiclib'
 			else:
-				param = '--shared -fpic'
+				param = '--shared'
 			return self.makeexe(output, objs, param, printcmd, capture)
 		else:
 			name = ' '.join([ self.pathrel(n) for n in objs ])
@@ -934,15 +991,14 @@ class coremake(object):
 		self._src = []		# 源代码
 		self._obj = []		# 目标文件
 		self._export = {}	# DLL导出配置
+		self.inited = 0
 		
 	# 初始化：设置工程名字，类型，以及中间文件的目录
 	def init (self, out = 'a.out', mode = 'exe', intermediate = ''):
 		if not mode in ('exe', 'win', 'dll', 'lib'):
 			raise Exception("mode must in ('exe', 'win', 'dll', 'lib')")
 		self.reset()
-		if not self.inited:
-			self.config.init()
-			self.inited = 1
+		self.config.default()
 		self._mode = mode
 		self._out = os.path.abspath(out)
 		self._int = intermediate
@@ -1266,6 +1322,7 @@ class iparser (object):
 	def __init__ (self, ininame = ''):
 		self.preprocessor = preprocessor()
 		self.coremake = coremake(ininame)
+		self.config = self.coremake.config
 		self.reset()
 
 	# 配置复位
@@ -1277,6 +1334,7 @@ class iparser (object):
 		self.exp = []
 		self.link = []
 		self.flag = []
+		self.flnk = []
 		self.mode = 'exe'
 		self.define = {}
 		self.name = ''
@@ -1292,6 +1350,7 @@ class iparser (object):
 		self.expdict = {}
 		self.linkdict = {}
 		self.flagdict = {}
+		self.flnkdict = {}
 		self.mainfile = ''
 		self.makefile = ''
 	
@@ -1361,6 +1420,13 @@ class iparser (object):
 		self.define[define] = value
 		return 0
 	
+	# 添加连接参数
+	def push_flnk (self, flnk):
+		if flnk in self.flnkdict:
+			return -1
+		self.flnkdict[flnk] = len(self.flnk)
+		self.flnk.append(flnk)
+	
 	# 添加导入配置
 	def push_imp (self, name, fname = '', lineno = -1):
 		if name in self.impdict:
@@ -1379,6 +1445,7 @@ class iparser (object):
 	# 分析开始
 	def parse (self, mainfile):
 		self.reset()
+		self.config.init()
 		mainfile = os.path.abspath(mainfile)
 		makefile = os.path.splitext(mainfile)[0] + '.mak'
 		part = os.path.split(mainfile)
@@ -1537,6 +1604,19 @@ class iparser (object):
 			self.error('unknow emake command', fname, lineno)
 			return -1
 		command, body = text[:pos].lower(), text[pos + 1:]
+		pos = command.find('/')
+		if pos >= 0:
+			condition, command = command[:pos].lower(), command[pos + 1:]
+			match = False
+			for cond in condition.replace(';', ',').split(','):
+				cond = cond.strip('\r\n\t ')
+				if not cond: continue
+				if cond in self.config.name:
+					match = True
+					break
+			if not match:
+				#print '"%s" not in %s'%(condition, self.config.name)
+				return 0
 		if command in ('out', 'output'):
 			self.out = os.path.abspath(self.pathconf(body))
 			return 0
@@ -1586,6 +1666,13 @@ class iparser (object):
 						fname, lineno)
 				self.push_flag(srcname)
 			return 0
+		if command in ('flnk', 'linkflag', 'lflag', 'ld', 'flaglink', 'flink'):
+			for name in body.replace(';', ',').split(','):
+				srcname = self.pathconf(name)
+				if not srcname:
+					continue
+				self.push_flnk(srcname)
+			return 0
 		if command == 'define':
 			for name in body.replace(';', ',').split(','):
 				srcname = self.pathconf(name).replace(' ', '_')
@@ -1623,6 +1710,12 @@ class iparser (object):
 					continue
 				self.push_exp(name, fname, lineno)
 			return 0
+		if command == 'echo':
+			print body
+			return 0
+		if command == 'color':
+			self.console(int(body.strip('\r\n\t ')))
+			return 0
 		self.error('error: %s: invalid command'%command, fname, lineno)
 		return -1
 	
@@ -1632,6 +1725,42 @@ class iparser (object):
 		for fn in self.src:
 			obj = src2obj[fn]
 			self.srcdict[fn] = os.path.abspath(obj)
+		return 0
+	
+	# 设置终端颜色
+	def console (self, color):
+		if sys.platform[:3] == 'win':
+			try: import ctypes
+			except: return 0
+			kernel32 = ctypes.windll.LoadLibrary('kernel32.dll')
+			GetStdHandle = kernel32.GetStdHandle
+			SetConsoleTextAttribute = kernel32.SetConsoleTextAttribute
+			GetStdHandle.argtypes = [ ctypes.c_uint32 ]
+			GetStdHandle.restype = ctypes.c_size_t
+			SetConsoleTextAttribute.argtypes = [ ctypes.c_size_t, ctypes.c_uint16 ]
+			SetConsoleTextAttribute.restype = ctypes.c_long
+			handle = GetStdHandle(0xfffffff5)
+			if color < 0: color = 7
+			result = 0
+			if (color & 1): result |= 4
+			if (color & 2): result |= 2
+			if (color & 4): result |= 1
+			if (color & 8): result |= 8
+			if (color & 16): result |= 64
+			if (color & 32): result |= 32
+			if (color & 64): result |= 16
+			if (color & 128): result |= 128
+			SetConsoleTextAttribute(handle, result)
+		else:
+			if color >= 0:
+				foreground = color & 7
+				background = (color >> 4) & 7
+				bold = color & 8
+				sys.stdout.write("\033[%s3%d;4%dm"%(bold and "01;" or "", foreground, background))
+				sys.stdout.flush()
+			else:
+				sys.stdout.write("\033[0m")
+				sys.stdout.flush()
 		return 0
 
 
@@ -1804,6 +1933,7 @@ class emake (object):
 	
 	def open (self, mainfile):
 		self.reset()
+		self.config.init()
 		retval = self.parser.parse(mainfile)
 		if retval != 0:
 			return -1
@@ -1835,6 +1965,9 @@ class emake (object):
 		for pdef in self.parser.define:
 			self.config.push_pdef(pdef)
 			#print 'pdef', pdef
+		for flnk in self.parser.flnk:
+			self.config.push_flnk(flnk)
+			#print 'flnk', flnk
 		for name, fname, lineno in self.parser.imp:
 			if not name in self.config.config:
 				self.parser.error('error: %s: No such config section'%name, \
@@ -2142,7 +2275,8 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		print 'usage: "emake.py [option] srcfile" (emake v3.03 Jun.23 2012)'
+		version = '(emake v3.04 Aug.17 2012 %s)'%sys.platform
+		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
 		print '            -l | -link       link project'
