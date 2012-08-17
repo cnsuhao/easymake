@@ -871,9 +871,9 @@ class configure(object):
 	def makedll (self, output, objs = [], param = '', printcmd = False, capture = False):
 		if (not param) or (self.unix):
 			if sys.platform[:6] == 'darwin':
-				param = '-dynamiclib'
+				param = '-dynamiclib -fPIC'
 			else:
-				param = '--shared'
+				param = '--shared -fPIC'
 			return self.makeexe(output, objs, param, printcmd, capture)
 		else:
 			name = ' '.join([ self.pathrel(n) for n in objs ])
@@ -1971,6 +1971,8 @@ class emake (object):
 		for flnk in self.parser.flnk:
 			self.config.push_flnk(flnk)
 			#print 'flnk', flnk
+		if self.parser.mode == 'dll' and self.config.unix:
+			self.config.push_flag('-fPIC')
 		for name, fname, lineno in self.parser.imp:
 			if not name in self.config.config:
 				self.parser.error('error: %s: No such config section'%name, \
@@ -2278,7 +2280,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		version = '(emake v3.04 Aug.17 2012 %s)'%sys.platform
+		version = '(emake v3.04 Aug.18 2012 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
