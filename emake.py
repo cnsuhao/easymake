@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 2.11
+# emake.py - emake version 3.04
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -14,6 +14,7 @@
 # 2010.11.04   skywind   new 'export' to export .def, .lib for windll
 # 2010.11.27   skywind   fixed link sequence with -Xlink -( -)
 # 2012.03.26   skywind   multiprocess building system, speed up
+# 2012.08.18   skywind   new 'flnk' to project
 #
 #======================================================================
 import sys, time, os
@@ -492,6 +493,8 @@ class configure(object):
 			self.name['unix'] = 1
 		if sys.platform[:6] == 'darwin':
 			self.name['darwin'] = 1
+			self.name['unix'] = 1
+		if sys.platform == 'cygwin':
 			self.name['unix'] = 1
 		if os.name == 'posix':
 			self.name['unix'] = 1
