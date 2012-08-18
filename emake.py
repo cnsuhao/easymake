@@ -304,6 +304,7 @@ class configure(object):
 			self.xlink = 0
 		self.cpus = 0
 		self.inited = False
+		self.fpic = 0
 		self.name = {}
 		self.reset()
 	
@@ -507,6 +508,10 @@ class configure(object):
 			for name in names.replace(';', ',').split(','):
 				if not name: continue
 				self.name[name.lower()] = 1
+		if sys.platform[:3] in ('win', 'cyg'):
+			self.fpic = False
+		else:
+			self.fpic = True
 		self.inited = True
 		return 0
 
@@ -871,9 +876,11 @@ class configure(object):
 	def makedll (self, output, objs = [], param = '', printcmd = False, capture = False):
 		if (not param) or (self.unix):
 			if sys.platform[:6] == 'darwin':
-				param = '-dynamiclib -fPIC'
+				param = '-dynamiclib'
 			else:
-				param = '--shared -fPIC'
+				param = '--shared'
+			if self.fpic:
+				param += ' -fPIC'
 			return self.makeexe(output, objs, param, printcmd, capture)
 		else:
 			name = ' '.join([ self.pathrel(n) for n in objs ])
@@ -1972,7 +1979,8 @@ class emake (object):
 			self.config.push_flnk(flnk)
 			#print 'flnk', flnk
 		if self.parser.mode == 'dll' and self.config.unix:
-			self.config.push_flag('-fPIC')
+			if self.config.fpic:
+				self.config.push_flag('-fPIC')
 		for name, fname, lineno in self.parser.imp:
 			if not name in self.config.config:
 				self.parser.error('error: %s: No such config section'%name, \
