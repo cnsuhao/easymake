@@ -1717,7 +1717,7 @@ class iparser (object):
 			print body
 			return 0
 		if command == 'color':
-			self.console(int(body.strip('\r\n\t ')))
+			self.console(int(body.strip('\r\n\t '), 0))
 			return 0
 		self.error('error: %s: invalid command'%command, fname, lineno)
 		return -1
