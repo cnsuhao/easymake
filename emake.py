@@ -22,15 +22,15 @@ import ConfigParser
 
 
 #----------------------------------------------------------------------
-# preprocessor: C/C++ Ô¤´¦ÀíÆ÷
+# preprocessor: C/C++ é¢„å¤„ç†å™¨
 #----------------------------------------------------------------------
 class preprocessor(object):
 
-	# ³õÊ¼»¯Ô¤±àÒëÆ÷
+	# åˆå§‹åŒ–é¢„ç¼–è¯‘å™¨
 	def __init__ (self):
 		self.reset()
 
-	# Éú³ÉÕıÎÄÓ³Éä£¬½«ËùÓĞ×Ö·û´®¼°×¢ÊÍÓÃ "$"ºÍ "`"´úÌæ£¬ÅÅ³ı·ÖÎö¸ÉÈÅ
+	# ç”Ÿæˆæ­£æ–‡æ˜ å°„ï¼Œå°†æ‰€æœ‰å­—ç¬¦ä¸²åŠæ³¨é‡Šç”¨ "$"å’Œ "`"ä»£æ›¿ï¼Œæ’é™¤åˆ†æå¹²æ‰°
 	def preprocess (self, text):
 		content = text
 		spaces = [' ', '\n', '\t', '\r']
@@ -39,7 +39,7 @@ class preprocessor(object):
 		memo = 0
 		i = 0
 		while i < len(content):
-			if memo == 0:		# ÕıÎÄÖĞ
+			if memo == 0:		# æ­£æ–‡ä¸­
 				if content[i:i+2] == '/*':
 					srctext.write('``')
 					i = i + 2
@@ -67,7 +67,7 @@ class preprocessor(object):
 					memo = 3
 					continue
 				srctext.write(content[i])
-			elif memo == 1:		# ×¢ÊÍÖĞ
+			elif memo == 1:		# æ³¨é‡Šä¸­
 				if content[i:i+2] == '*/':
 					srctext.write('``')
 					i = i + 2
@@ -78,7 +78,7 @@ class preprocessor(object):
 					i = i + 1
 					continue
 				srctext.write('`')
-			elif memo == 2:		# ×Ö·û´®ÖĞ
+			elif memo == 2:		# å­—ç¬¦ä¸²ä¸­
 				if content[i:i+2] == '\\\"':
 					srctext.write('$$')
 					i = i + 2
@@ -97,7 +97,7 @@ class preprocessor(object):
 					i = i + 1
 					continue
 				srctext.write('$')
-			elif memo == 3:		# ×Ö·ûÖĞ
+			elif memo == 3:		# å­—ç¬¦ä¸­
 				if content[i:i+2] == '\\\'':
 					srctext.write('$$')
 					i = i + 2
@@ -119,7 +119,7 @@ class preprocessor(object):
 			i = i + 1
 		return srctext.getvalue()
 
-	# ²éÕÒµ¥Ò»ÎÄ¼şµÄÍ·ÎÄ¼şÒıÓÃÇé¿ö
+	# æŸ¥æ‰¾å•ä¸€æ–‡ä»¶çš„å¤´æ–‡ä»¶å¼•ç”¨æƒ…å†µ
 	def search_reference(self, source, heads):
 		content = ''
 		del heads[:]
@@ -183,7 +183,7 @@ class preprocessor(object):
 
 		return content
 
-	# ºÏ²¢ÒıÓÃµÄËùÓĞÍ·ÎÄ¼ş£¬²¢·µ»ØÎÄ¼şÒÀÀµ£¬¼°ÕÒ²»µ½µÄÍ·ÎÄ¼ş
+	# åˆå¹¶å¼•ç”¨çš„æ‰€æœ‰å¤´æ–‡ä»¶ï¼Œå¹¶è¿”å›æ–‡ä»¶ä¾èµ–ï¼ŒåŠæ‰¾ä¸åˆ°çš„å¤´æ–‡ä»¶
 	def parse_source(self, filename, history_headers, lost_headers):
 		headers = []
 		filename = os.path.abspath(filename)
@@ -228,7 +228,7 @@ class preprocessor(object):
 		os.chdir(save_cwd)
 		return outtext.getvalue()
 
-	# ¹ıÂË´úÂë×¢ÊÍ
+	# è¿‡æ»¤ä»£ç æ³¨é‡Š
 	def cleanup_memo(text):
 		content = text
 		outtext = ''
@@ -257,12 +257,12 @@ class preprocessor(object):
 			outtext = outtext + '\n'
 		return outtext
 
-	# ¸´Î»ÒÀÀµ¹ØÏµ
+	# å¤ä½ä¾èµ–å…³ç³»
 	def reset (self):
 		self._references = {}
 		return 0
 
-	# Ö±½Ó·µ»ØÒÀÀµ
+	# ç›´æ¥è¿”å›ä¾èµ–
 	def dependence (self, filename, reset = False):
 		head = []
 		lost = []
@@ -273,11 +273,11 @@ class preprocessor(object):
 
 
 #----------------------------------------------------------------------
-# configure: È·¶¨gccÎ»ÖÃ²¢´ÓÅäÖÃ¶Á³öÄ¬ÈÏÉèÖÃ
+# configure: ç¡®å®šgccä½ç½®å¹¶ä»é…ç½®è¯»å‡ºé»˜è®¤è®¾ç½®
 #----------------------------------------------------------------------
 class configure(object):
 
-	# ¹¹Ôìº¯Êı
+	# æ„é€ å‡½æ•°
 	def __init__ (self, ininame = ''):
 		exepath = os.path.abspath(os.path.join(os.getcwd(), sys.argv[0]))
 		self.dirpath = os.path.join(*os.path.split(exepath)[:-1])
@@ -307,19 +307,19 @@ class configure(object):
 		self.name = {}
 		self.reset()
 	
-	# ÅäÖÃĞÅÏ¢¸´Î»
+	# é…ç½®ä¿¡æ¯å¤ä½
 	def reset (self):
-		self.inc = {}		# includeÂ·¾¶
-		self.lib = {}		# lib Â·¾¶
-		self.flag = {}		# ±àÒë²ÎÊı
-		self.pdef = {}		# Ô¤¶¨Òåºê
-		self.link = {}		# Á¬½Ó¿â
-		self.flnk = {}		# Á¬½Ó²ÎÊı
+		self.inc = {}		# includeè·¯å¾„
+		self.lib = {}		# lib è·¯å¾„
+		self.flag = {}		# ç¼–è¯‘å‚æ•°
+		self.pdef = {}		# é¢„å®šä¹‰å®
+		self.link = {}		# è¿æ¥åº“
+		self.flnk = {}		# è¿æ¥å‚æ•°
 		self.param_build = ''
 		self.param_compile = ''
 		return 0
 	
-	# ³õÊ¼»¯¹¤¾ß»·¾³
+	# åˆå§‹åŒ–å·¥å…·ç¯å¢ƒ
 	def _cmdline_init (self, envname, exename):
 		if not envname in self.config:
 			return -1
@@ -355,7 +355,7 @@ class configure(object):
 			EXEC = self.pathshort(EXEC)
 		return EXEC
 	
-	# ¹¤¾ß¼ÓÔØ
+	# å·¥å…·åŠ è½½
 	def _env_config (self, section):
 		config = {}
 		if section in self.config:
@@ -365,7 +365,7 @@ class configure(object):
 			config[n] = self._expand(config, self.environ, n, config[n])
 		return config
 
-	# Õ¹¿ªÅäÖÃºê
+	# å±•å¼€é…ç½®å®
 	def _expand (self, section, environ, item, text):
 		if not environ: environ = {}
 		if not section: section = {}
@@ -385,7 +385,7 @@ class configure(object):
 			text = text.replace('%' + name + '%', value)
 		return text
 	
-	# È¡µÃ¶ÌÎÄ¼şÃû
+	# å–å¾—çŸ­æ–‡ä»¶å
 	def pathshort (self, path):
 		path = os.path.abspath(path)
 		if self.unix:
@@ -410,7 +410,7 @@ class configure(object):
 			return ''
 		return shortpath
 	
-	# ¶ÁÈ¡iniÎÄ¼ş
+	# è¯»å–iniæ–‡ä»¶
 	def _readini (self, inipath):
 		self.cp = ConfigParser.ConfigParser()
 		if self.unix and '~' in inipath:
@@ -425,7 +425,7 @@ class configure(object):
 			self.haveini = True
 		return 0
 
-	# ³õÊ¼»¯
+	# åˆå§‹åŒ–
 	def init (self):
 		if self.inited:
 			return 0
@@ -510,11 +510,11 @@ class configure(object):
 		self.inited = True
 		return 0
 
-	# ¶ÁÈ¡ÅäÖÃ
+	# è¯»å–é…ç½®
 	def _getitem (self, sect, key, default = ''):
 		return self.config.get(sect, {}).get(key, default)
 	
-	# È¡µÃÌæ»»ÁË$(HOME)±äÁ¿µÄÂ·¾¶
+	# å–å¾—æ›¿æ¢äº†$(HOME)å˜é‡çš„è·¯å¾„
 	def path (self, path):
 		path = path.replace('$(HOME)', self.dirhome).replace('\\', '/')
 		path = self.cygpath(path)
@@ -529,7 +529,7 @@ class configure(object):
 				issep = False
 		return os.path.abspath(text)
 	
-	# È¡µÃ¿ÉÓÃÓÚ²ÎÊıµÄÎÄ±¾Â·¾¶
+	# å–å¾—å¯ç”¨äºå‚æ•°çš„æ–‡æœ¬è·¯å¾„
 	def pathtext (self, name):
 		name = os.path.normpath(name)
 		name = self.cygpath(name)
@@ -540,7 +540,7 @@ class configure(object):
 			name = name.replace('\\', '/')
 		return name
 	
-	# È¡µÃ¶ÌÂ·¾¶£ºµ±Ç°Â·¾¶µÄÏà¶ÔÂ·¾¶
+	# å–å¾—çŸ­è·¯å¾„ï¼šå½“å‰è·¯å¾„çš„ç›¸å¯¹è·¯å¾„
 	def pathrel (self, name):
 		name = os.path.abspath(name)
 		if 'relpath' in os.__dict__:
@@ -558,18 +558,18 @@ class configure(object):
 		name = self.pathtext(name)
 		return name
 	
-	# ×ª»»µ½cygwinÂ·¾¶
+	# è½¬æ¢åˆ°cygwinè·¯å¾„
 	def cygpath (self, path):
 		if self.unix and path[1:2] == ':':
 			path = '/cygdrive/%s%s'%(path[0], path[2:].replace('\\', '/'))
 		return path
 	
-	# ×ª»»µ½cygwinÂ·¾¶
+	# è½¬æ¢åˆ°cygwinè·¯å¾„
 	def win2cyg (self, path):
 		path = os.path.abspath(path)
 		return '/cygdrive/%s%s'%(path[0], path[2:].replace('\\', '/'))
 
-	# ×ª»»»ØcygwinÂ·¾¶
+	# è½¬æ¢å›cygwinè·¯å¾„
 	def cyg2win (self, path):
 		if path[1:2] == ':':
 			return os.path.abspath(path)
@@ -582,7 +582,7 @@ class configure(object):
 			raise Exception('cannot find cygwin root')
 		return os.path.abspath(os.path.join(self.cygwin, path[1:]))
 
-	# Ìí¼ÓÍ·ÎÄ¼şÄ¿Â¼
+	# æ·»åŠ å¤´æ–‡ä»¶ç›®å½•
 	def push_inc (self, inc):
 		path = self.path(inc)
 		if not os.path.exists(path):
@@ -595,7 +595,7 @@ class configure(object):
 		self.inc[path] = 1
 		return 0
 	
-	# Ìí¼Ó¿âÎÄ¼şÄ¿Â¼
+	# æ·»åŠ åº“æ–‡ä»¶ç›®å½•
 	def push_lib (self, lib):
 		path = self.path(lib)
 		if not os.path.exists(path):
@@ -608,13 +608,13 @@ class configure(object):
 		self.lib[path] = 1
 		return 0
 	
-	# Ìí¼Ó²ÎÊı
+	# æ·»åŠ å‚æ•°
 	def push_flag (self, flag):
 		if not flag in self.flag:
 			self.flag[flag] = len(self.flag)
 		return 0
 	
-	# Ìí¼ÓÁ´½Ó¿â
+	# æ·»åŠ é“¾æ¥åº“
 	def push_link (self, link):
 		if link[-2:].lower() == '.o':
 			link = self.pathtext(self.path(link))
@@ -624,17 +624,17 @@ class configure(object):
 			self.link[link] = len(self.link)
 		return 0
 	
-	# Ìí¼ÓÔ¤¶¨Òå
+	# æ·»åŠ é¢„å®šä¹‰
 	def push_pdef (self, define):
 		self.pdef[define] = 1
 	
-	# Ìí¼ÓÁ¬½Ó²ÎÊı
+	# æ·»åŠ è¿æ¥å‚æ•°
 	def push_flnk (self, flnk):
 		if not flnk in self.flnk:
 			self.flnk[flnk] = len(self.flnk)
 		return 0
 
-	# ËÑË÷gcc
+	# æœç´¢gcc
 	def search (self):
 		dirpath = self.dirpath
 		if sys.platform[:3] == 'win':
@@ -655,7 +655,7 @@ class configure(object):
 				return '/usr/local'
 		return ''
 	
-	# Ğ´Ä¬ÈÏµÄÅäÖÃÎÄ¼ş
+	# å†™é»˜è®¤çš„é…ç½®æ–‡ä»¶
 	def _write_default_ini (self):
 		default = '''	[default]
 						include=$(HOME)/include
@@ -669,14 +669,14 @@ class configure(object):
 		fp.close()
 		return 0
 	
-	# ÅäÖÃÂ·¾¶
+	# é…ç½®è·¯å¾„
 	def pathconf (self, path):
 		path = path.strip(' \t')
 		if path[:1] == '\'' and path[-1:] == '\'': path = path[1:-1]
 		if path[:1] == '\"' and path[-1:] == '\"': path = path[1:-1]
 		return path
 
-	# Ë¢ĞÂÅäÖÃ
+	# åˆ·æ–°é…ç½®
 	def default (self, sect = 'default'):
 		self.reset()
 		self.init()
@@ -709,14 +709,14 @@ class configure(object):
 		self.parameters()
 		return 0
 	
-	# °´×ÖµäÖµË³ĞòÈ¡³öÅäÖÃ
+	# æŒ‰å­—å…¸å€¼é¡ºåºå–å‡ºé…ç½®
 	def sequence (self, data):
 		x = [ (n, k) for (k, n) in data.items() ]
 		x.sort()
 		y = [ n for (k, n) in x ]
 		return y
 
-	# ·µ»ØĞòÁĞ»¯µÄ²ÎÊı	
+	# è¿”å›åºåˆ—åŒ–çš„å‚æ•°	
 	def parameters (self):
 		text = ''
 		for inc in self.sequence(self.inc):
@@ -742,7 +742,7 @@ class configure(object):
 			self.param_build += ' %s'%flnk
 		return text
 
-	# gcc µÄsearch-dirs
+	# gcc çš„search-dirs
 	def __searchdirs (self):
 		if self.searchdirs != None:
 			return self.searchdirs
@@ -779,7 +779,7 @@ class configure(object):
 		self.searchdirs = data
 		return data
 	
-	# ¼ì²â¿âÊÇ·ñ´æÔÚ
+	# æ£€æµ‹åº“æ˜¯å¦å­˜åœ¨
 	def checklib (self, name):
 		name = 'lib' + name + '.a'
 		for n in self.__searchdirs():
@@ -790,7 +790,7 @@ class configure(object):
 				return True
 		return False
 	
-	# Ö´ĞĞGNU¹¤¾ß¼¯
+	# æ‰§è¡ŒGNUå·¥å…·é›†
 	def execute (self, binname, parameters, printcmd = False, capture = False):
 		path = os.path.abspath(os.path.join(self.dirhome, 'bin', binname))
 		if not self.unix:
@@ -836,7 +836,7 @@ class configure(object):
 		if p: p.wait()
 		return text
 
-	# µ÷ÓÃ gcc
+	# è°ƒç”¨ gcc
 	def gcc (self, parameters, needlink, printcmd = False, capture = False):
 		param = self.param_build
 		if not needlink:
@@ -844,12 +844,12 @@ class configure(object):
 		parameters = '%s %s'%(parameters, param)
 		return self.execute('gcc', parameters, printcmd, capture)
 
-	# ±àÒë
+	# ç¼–è¯‘
 	def compile (self, srcname, objname, printcmd = False, capture = False):
 		cmd = '-c %s -o %s'%(self.pathrel(srcname), self.pathrel(objname))
 		return self.gcc(cmd, False, printcmd, capture)
 	
-	# Ê¹ÓÃ dllwrap
+	# ä½¿ç”¨ dllwrap
 	def dllwrap (self, parameters, printcmd = False, capture = False):
 		text = ''
 		for lib in self.sequence(self.lib):
@@ -861,13 +861,13 @@ class configure(object):
 		parameters = '%s %s'%(parameters, text)
 		return self.execute('dllwrap', parameters, printcmd, capture)
 	
-	# Éú³Élib¿â
+	# ç”Ÿæˆlibåº“
 	def makelib (self, output, objs = [], printcmd = False, capture = False):
 		name = ' '.join([ self.pathrel(n) for n in objs ])
 		parameters = 'crv %s %s'%(self.pathrel(output), name)
 		return self.execute('ar', parameters, printcmd, capture)
 	
-	# Éú³É¶¯Ì¬Á´½Ó£ºdll »òÕß so
+	# ç”ŸæˆåŠ¨æ€é“¾æ¥ï¼šdll æˆ–è€… so
 	def makedll (self, output, objs = [], param = '', printcmd = False, capture = False):
 		if (not param) or (self.unix):
 			if sys.platform[:6] == 'darwin':
@@ -881,7 +881,7 @@ class configure(object):
 				self.pathrel(output), name)
 			return self.dllwrap(parameters, printcmd, capture)
 	
-	# Éú³Éexe
+	# ç”Ÿæˆexe
 	def makeexe (self, output, objs = [], param = '', printcmd = False, capture = False):
 		name = ' '.join([ self.pathrel(n) for n in objs ])
 		if self.xlink:
@@ -889,7 +889,7 @@ class configure(object):
 		parameters = '-o %s %s %s'%(self.pathrel(output), param, name)
 		return self.gcc(parameters, True, printcmd, capture)
 
-	# ÔËĞĞ¹¤¾ß
+	# è¿è¡Œå·¥å…·
 	def cmdtool (self, sectname, exename, parameters, printcmd = False):
 		envsave = [ (n, os.environ[n]) for n in os.environ ]
 		hr = self._cmdline_init(sectname, exename)
@@ -920,7 +920,7 @@ class configure(object):
 			del os.environ[n]
 		return 0
 	
-	# µ÷ÓÃ Cygwin Bash
+	# è°ƒç”¨ Cygwin Bash
 	def cygwin_bash (self, cmds, capture = False):
 		import subprocess
 		output = ''
@@ -950,7 +950,7 @@ class configure(object):
 		stdouterr = None
 		return output
 	
-	# ÔËĞĞ Cygwin ÃüÁîĞĞ
+	# è¿è¡Œ Cygwin å‘½ä»¤è¡Œ
 	def cygwin_execute (self, sect, exename, parameters = '', capture = 0):
 		capture = capture and True or False
 		sect = sect.lower()
@@ -973,11 +973,11 @@ class configure(object):
 
 
 #----------------------------------------------------------------------
-# coremake: ºËĞÄ¹¤³Ì±àÒë£¬Ìá¹© Compile/Link/Build
+# coremake: æ ¸å¿ƒå·¥ç¨‹ç¼–è¯‘ï¼Œæä¾› Compile/Link/Build
 #----------------------------------------------------------------------
 class coremake(object):
 	
-	# ¹¹Ôìº¯Êı
+	# æ„é€ å‡½æ•°
 	def __init__ (self, ininame = ''):
 		self.ininame = ininame
 		self.config = configure(self.ininame)
@@ -985,18 +985,18 @@ class coremake(object):
 		self.inited = 0
 		self.reset()
 	
-	# ¸´Î»ÅäÖÃ
+	# å¤ä½é…ç½®
 	def reset (self):
 		self.config.reset()
-		self._out = ''		# ×îÖÕÊä³öµÄÎÄ¼ş£¬±ÈÈçabc.exe
-		self._int = ''		# ÖĞ¼äÎÄ¼şµÄÄ¿Â¼
+		self._out = ''		# æœ€ç»ˆè¾“å‡ºçš„æ–‡ä»¶ï¼Œæ¯”å¦‚abc.exe
+		self._int = ''		# ä¸­é—´æ–‡ä»¶çš„ç›®å½•
 		self._mode = 'exe'	# exe win dll lib
-		self._src = []		# Ô´´úÂë
-		self._obj = []		# Ä¿±êÎÄ¼ş
-		self._export = {}	# DLLµ¼³öÅäÖÃ
+		self._src = []		# æºä»£ç 
+		self._obj = []		# ç›®æ ‡æ–‡ä»¶
+		self._export = {}	# DLLå¯¼å‡ºé…ç½®
 		self.inited = 0
 		
-	# ³õÊ¼»¯£ºÉèÖÃ¹¤³ÌÃû×Ö£¬ÀàĞÍ£¬ÒÔ¼°ÖĞ¼äÎÄ¼şµÄÄ¿Â¼
+	# åˆå§‹åŒ–ï¼šè®¾ç½®å·¥ç¨‹åå­—ï¼Œç±»å‹ï¼Œä»¥åŠä¸­é—´æ–‡ä»¶çš„ç›®å½•
 	def init (self, out = 'a.out', mode = 'exe', intermediate = ''):
 		if not mode in ('exe', 'win', 'dll', 'lib'):
 			raise Exception("mode must in ('exe', 'win', 'dll', 'lib')")
@@ -1007,7 +1007,7 @@ class coremake(object):
 		self._int = intermediate
 		self._out = self.outname(self._out, mode)
 	
-	# È¡µÃÔ´ÎÄ¼ş¶ÔÓ¦µÄÄ¿±êÎÄ¼ş£º¸ø¶¨Ô´ÎÄ¼şÃûºÍÖĞ¼äÎÄ¼şÄ¿Â¼Ãû
+	# å–å¾—æºæ–‡ä»¶å¯¹åº”çš„ç›®æ ‡æ–‡ä»¶ï¼šç»™å®šæºæ–‡ä»¶åå’Œä¸­é—´æ–‡ä»¶ç›®å½•å
 	def objname (self, srcname, intermediate = ''):
 		part = os.path.splitext(srcname)
 		ext = part[1].lower()
@@ -1022,7 +1022,7 @@ class coremake(object):
 			raise Exception('unknow ext-type of %s\n'%srcname)
 		return srcname
 	
-	# È¡µÃÊä³öÎÄ¼şµÄÎÄ¼şÃû
+	# å–å¾—è¾“å‡ºæ–‡ä»¶çš„æ–‡ä»¶å
 	def outname (self, output, mode = 'exe'):
 		if not mode in ('exe', 'win', 'dll', 'lib'):
 			raise Exception("mode must in ('exe', 'win', 'dll', 'lib')")
@@ -1049,7 +1049,7 @@ class coremake(object):
 			else: output += part[1]
 		return output
 	
-	# ¸ù¾İÔ´ÎÄ¼şÁĞ±íÈ¡µÃÄ¿±êÎÄ¼şÁĞ±í
+	# æ ¹æ®æºæ–‡ä»¶åˆ—è¡¨å–å¾—ç›®æ ‡æ–‡ä»¶åˆ—è¡¨
 	def scan (self, sources, intermediate = ''):
 		src2obj = {}
 		obj2src = {}
@@ -1069,12 +1069,12 @@ class coremake(object):
 		obj2src = None
 		return src2obj
 	
-	# Ìí¼ÓÔ´ÎÄ¼şºÍÄ¿±êÎÄ¼ş
+	# æ·»åŠ æºæ–‡ä»¶å’Œç›®æ ‡æ–‡ä»¶
 	def push (self, srcname, objname):
 		self._src.append(os.path.abspath(srcname))
 		self._obj.append(os.path.abspath(objname))
 	
-	# ´´½¨Ä¿Â¼
+	# åˆ›å»ºç›®å½•
 	def mkdir (self, path):
 		if os.path.exists(path):
 			return 0
@@ -1090,7 +1090,7 @@ class coremake(object):
 				os.mkdir(name)
 		return 0
 	
-	# É¾³ıÄ¿Â¼
+	# åˆ é™¤ç›®å½•
 	def remove (self, path):
 		try: os.remove(path)
 		except: pass
@@ -1100,7 +1100,7 @@ class coremake(object):
 			sys.exit(0)
 		return 0
 	
-	# DLLÅäÖÃ
+	# DLLé…ç½®
 	def dllwrap (self, name):
 		if sys.platform[:3] != 'win':
 			return -1
@@ -1126,7 +1126,7 @@ class coremake(object):
 			self._export['msvc64'] = 1
 		return 0
 	
-	# DLL exportµÄ²ÎÊı
+	# DLL exportçš„å‚æ•°
 	def _dllparam (self):
 		defname = self._export.get('def', '')
 		libname = self._export.get('lib', '')
@@ -1142,7 +1142,7 @@ class coremake(object):
 			param += '--implib %s '%self.config.pathrel(libname)
 		return param
 	
-	# DLL ±àÒëÍê³ÉºóµÄÊÂÇé
+	# DLL ç¼–è¯‘å®Œæˆåçš„äº‹æƒ…
 	def _dllpost (self):
 		defname = self._export.get('def', '')
 		libname = self._export.get('lib', '')
@@ -1163,7 +1163,7 @@ class coremake(object):
 		self.config.cmdtool('msvc', 'LIB.EXE', parameters, False)
 		return 0
 	
-	# µ¥ºË±àÒë£ºskipexist(ÊÇ·ñĞèÒªÌø¹ıÒÑÓĞµÄobjÎÄ¼ş)
+	# å•æ ¸ç¼–è¯‘ï¼šskipexist(æ˜¯å¦éœ€è¦è·³è¿‡å·²æœ‰çš„objæ–‡ä»¶)
 	def _compile_single (self, skipexist, printmode, printcmd):
 		retval = 0
 		for i in xrange(len(self._src)):
@@ -1186,9 +1186,9 @@ class coremake(object):
 				break
 		return retval
 	
-	# ¶àºË±àÒë£ºskipexist(ÊÇ·ñĞèÒªÌø¹ıÒÑÓĞµÄobjÎÄ¼ş)
+	# å¤šæ ¸ç¼–è¯‘ï¼šskipexist(æ˜¯å¦éœ€è¦è·³è¿‡å·²æœ‰çš„objæ–‡ä»¶)
 	def _compile_threading (self, skipexist, printmode, printcmd, cpus):
-		# ¹ÀËã±àÒëÊ±¼ä£¬ÎÄ¼şÔ½´ó¼ÙÉèÊ±¼äÔ½³¤£¬·ÅÔÚ×îÇ°Ãæ
+		# ä¼°ç®—ç¼–è¯‘æ—¶é—´ï¼Œæ–‡ä»¶è¶Šå¤§å‡è®¾æ—¶é—´è¶Šé•¿ï¼Œæ”¾åœ¨æœ€å‰é¢
 		ctasks = [ (os.path.getsize(s), s, o) for s, o in zip(self._src, self._obj) ]
 		ctasks.sort()
 		import threading
@@ -1215,7 +1215,7 @@ class coremake(object):
 				break
 		return self._task_retval
 	
-	# ¾ßÌå±àÒëÏß³Ì
+	# å…·ä½“ç¼–è¯‘çº¿ç¨‹
 	def _compile_working_thread (self, skipexist, printmode, printcmd, id):
 		mutex = self._task_lock
 		while True:
@@ -1259,7 +1259,7 @@ class coremake(object):
 			time.sleep(0.01)
 		return 0
 
-	# ±àÒë£ºskipexist(ÊÇ·ñĞèÒªÌø¹ıÒÑÓĞµÄobjÎÄ¼ş)
+	# ç¼–è¯‘ï¼šskipexist(æ˜¯å¦éœ€è¦è·³è¿‡å·²æœ‰çš„objæ–‡ä»¶)
 	def compile (self, skipexist = False, printmode = 0, cpus = 0):
 		self.mkdir(os.path.abspath(self._int))
 		printcmd = False
@@ -1276,7 +1276,7 @@ class coremake(object):
 		#print 'time', t
 		return retval
 	
-	# Á¬½Ó£º(ÊÇ·ñÌø¹ıÒÑÓĞµÄÎÄ¼ş)
+	# è¿æ¥ï¼š(æ˜¯å¦è·³è¿‡å·²æœ‰çš„æ–‡ä»¶)
 	def link (self, skipexist = False, printmode = 0):
 		retval = 0
 		printcmd = False
@@ -1305,7 +1305,7 @@ class coremake(object):
 			return ''
 		return output
 	
-	# ±àÒëÓëÁ¬½Ó
+	# ç¼–è¯‘ä¸è¿æ¥
 	def build (self, skipexist = False, printmode = 0):
 		if self.compile(skipexist, printmode) != 0:
 			return -1
@@ -1317,18 +1317,18 @@ class coremake(object):
 
 
 #----------------------------------------------------------------------
-# iparser: ¹¤³Ì·ÖÎöÆ÷£¬·ÖÎö¸÷ÖÖÅäÖÃĞÅÏ¢
+# iparser: å·¥ç¨‹åˆ†æå™¨ï¼Œåˆ†æå„ç§é…ç½®ä¿¡æ¯
 #----------------------------------------------------------------------
 class iparser (object):
 	
-	# ¹¹Ôìº¯Êı
+	# æ„é€ å‡½æ•°
 	def __init__ (self, ininame = ''):
 		self.preprocessor = preprocessor()
 		self.coremake = coremake(ininame)
 		self.config = self.coremake.config
 		self.reset()
 
-	# ÅäÖÃ¸´Î»
+	# é…ç½®å¤ä½
 	def reset (self):
 		self.src = []
 		self.inc = []
@@ -1357,23 +1357,23 @@ class iparser (object):
 		self.mainfile = ''
 		self.makefile = ''
 	
-	# È¡µÃÎÄ¼şµÄÄ¿±êÎÄ¼şÃû³Æ
+	# å–å¾—æ–‡ä»¶çš„ç›®æ ‡æ–‡ä»¶åç§°
 	def __getitem__ (self, key):
 		return self.srcdict[key]
 	
-	# È¡µÃÄ£¿é¸öÊı
+	# å–å¾—æ¨¡å—ä¸ªæ•°
 	def __len__ (self):
 		return len(self.srcdict)
 	
-	# ¼ì²âÊÇ·ñ°üº¬Ä£¿é
+	# æ£€æµ‹æ˜¯å¦åŒ…å«æ¨¡å—
 	def __contains__ (self, key):
 		return (key in self.srcdict)
 	
-	# È¡µÃµü´úÆ÷
+	# å–å¾—è¿­ä»£å™¨
 	def __iter__ (self):
 		return self.src.__iter__()
 	
-	# Ìí¼Ó´úÂë
+	# æ·»åŠ ä»£ç 
 	def push_src (self, filename):
 		filename = os.path.abspath(filename)
 		realname = os.path.normcase(filename)
@@ -1386,7 +1386,7 @@ class iparser (object):
 		self.src.append(filename)
 		return 0
 	
-	# Ìí¼ÓÁ´½Ó
+	# æ·»åŠ é“¾æ¥
 	def push_link (self, linkname):
 		if linkname in self.linkdict:
 			return -1
@@ -1394,7 +1394,7 @@ class iparser (object):
 		self.link.append(linkname)
 		return 0
 	
-	# Ìí¼ÓÍ·Â·¾¶
+	# æ·»åŠ å¤´è·¯å¾„
 	def push_inc (self, inc):
 		if inc in self.incdict:
 			return -1
@@ -1402,7 +1402,7 @@ class iparser (object):
 		self.inc.append(inc)
 		return 0
 
-	# Ìí¼Ó¿âÂ·¾¶
+	# æ·»åŠ åº“è·¯å¾„
 	def push_lib (self, lib):
 		if lib in self.libdict:
 			return -1
@@ -1410,7 +1410,7 @@ class iparser (object):
 		self.lib.append(lib)
 		return 0
 	
-	# Ìí¼Ó²ÎÊı
+	# æ·»åŠ å‚æ•°
 	def push_flag (self, flag):
 		if flag in self.flagdict:
 			return -1
@@ -1418,19 +1418,19 @@ class iparser (object):
 		self.flag.append(flag)
 		return 0
 	
-	# Ìí¼Óºê¶¨Òå
+	# æ·»åŠ å®å®šä¹‰
 	def push_define (self, define, value = 1):
 		self.define[define] = value
 		return 0
 	
-	# Ìí¼ÓÁ¬½Ó²ÎÊı
+	# æ·»åŠ è¿æ¥å‚æ•°
 	def push_flnk (self, flnk):
 		if flnk in self.flnkdict:
 			return -1
 		self.flnkdict[flnk] = len(self.flnk)
 		self.flnk.append(flnk)
 	
-	# Ìí¼Óµ¼ÈëÅäÖÃ
+	# æ·»åŠ å¯¼å…¥é…ç½®
 	def push_imp (self, name, fname = '', lineno = -1):
 		if name in self.impdict:
 			return -1
@@ -1438,14 +1438,14 @@ class iparser (object):
 		self.imp.append((name, fname, lineno))
 		return 0
 	
-	# Ìí¼ÓÊä³öÅäÖÃ
+	# æ·»åŠ è¾“å‡ºé…ç½®
 	def push_exp (self, name, fname = '', lineno = -1):
 		if name in self.expdict:
 			return -1
 		self.expdict[name] = len(self.exp)
 		self.exp.append((name, fname, lineno))
 	
-	# ·ÖÎö¿ªÊ¼
+	# åˆ†æå¼€å§‹
 	def parse (self, mainfile):
 		self.reset()
 		self.config.init()
@@ -1474,7 +1474,7 @@ class iparser (object):
 		self._update_obj_names()
 		return 0
 	
-	# È¡µÃÏà¶ÔÂ·¾¶
+	# å–å¾—ç›¸å¯¹è·¯å¾„
 	def pathrel (self, name, current = ''):
 		if not current:
 			current = os.getcwd()
@@ -1488,14 +1488,14 @@ class iparser (object):
 			name = name[size:]
 		return name
 
-	# ÅäÖÃÂ·¾¶
+	# é…ç½®è·¯å¾„
 	def pathconf (self, path):
 		path = path.strip(' \r\n\t')
 		if path[:1] == '\'' and path[-1:] == '\'': path = path[1:-1]
 		if path[:1] == '\"' and path[-1:] == '\"': path = path[1:-1]
 		return path
 	
-	# É¨Ãè´úÂëÖĞ ¹Ø¼ü×¢ÊÍµÄ¹¤³ÌĞÅÏ¢
+	# æ‰«æä»£ç ä¸­ å…³é”®æ³¨é‡Šçš„å·¥ç¨‹ä¿¡æ¯
 	def _scan_memo (self, filename, prefix = '!'):
 		command = []
 		content = open(filename, 'U').read()
@@ -1540,7 +1540,7 @@ class iparser (object):
 				lineno += 1
 		return command
 	
-	# É¨ÃèÖ÷ÎÄ¼ş
+	# æ‰«æä¸»æ–‡ä»¶
 	def scan_mainfile (self):
 		command = self._scan_memo(self.mainfile)
 		savedir = os.getcwd()
@@ -1554,7 +1554,7 @@ class iparser (object):
 		self.push_src(self.mainfile)
 		return retval
 
-	# É¨Ãè¹¤³ÌÎÄ¼ş
+	# æ‰«æå·¥ç¨‹æ–‡ä»¶
 	def scan_makefile (self):
 		savedir = os.getcwd()
 		os.chdir(os.path.split(self.makefile)[0])
@@ -1568,7 +1568,7 @@ class iparser (object):
 		os.chdir(savedir)
 		return retval
 	
-	# Êä³ö´íÎó
+	# è¾“å‡ºé”™è¯¯
 	def error (self, text, fname = '', line = -1):
 		message = ''
 		if fname and line > 0:
@@ -1577,7 +1577,7 @@ class iparser (object):
 		sys.stderr.flush()
 		return 0
 	
-	# ´¦ÀíÔ´ÎÄ¼ş
+	# å¤„ç†æºæ–‡ä»¶
 	def _process_src (self, textline, fname = '', lineno = -1):
 		for name in textline.replace(';', ',').split(','):
 			srcname = self.pathconf(name)
@@ -1595,12 +1595,12 @@ class iparser (object):
 			self.push_src(absname)
 		return 0
 
-	# ´¦Àí£º·ÖÎöĞÅÏ¢
+	# å¤„ç†ï¼šåˆ†æä¿¡æ¯
 	def _process (self, fname, lineno, text):
 		text = text.strip(' \t\r\n')
-		if not text:					# ¿ÕĞĞ
+		if not text:					# ç©ºè¡Œ
 			return 0
-		if text[:1] in (';', '#'):		# Ìø¹ı×¢ÊÍ
+		if text[:1] in (';', '#'):		# è·³è¿‡æ³¨é‡Š
 			return 0
 		pos = text.find(':')
 		if pos < 0:
@@ -1722,7 +1722,7 @@ class iparser (object):
 		self.error('error: %s: invalid command'%command, fname, lineno)
 		return -1
 	
-	# É¨Ãè²¢È·¶¨Ä¿±êÎÄ¼ş
+	# æ‰«æå¹¶ç¡®å®šç›®æ ‡æ–‡ä»¶
 	def _update_obj_names (self):
 		src2obj = self.coremake.scan(self.src, self.int)
 		for fn in self.src:
@@ -1730,7 +1730,7 @@ class iparser (object):
 			self.srcdict[fn] = os.path.abspath(obj)
 		return 0
 	
-	# ÉèÖÃÖÕ¶ËÑÕÉ«
+	# è®¾ç½®ç»ˆç«¯é¢œè‰²
 	def console (self, color):
 		if sys.platform[:3] == 'win':
 			try: import ctypes
@@ -1768,7 +1768,7 @@ class iparser (object):
 
 
 #----------------------------------------------------------------------
-# dependence: ¹¤³Ì±àÒë£¬Compile/Link/Build
+# dependence: å·¥ç¨‹ç¼–è¯‘ï¼ŒCompile/Link/Build
 #----------------------------------------------------------------------
 class dependence (object):
 	
@@ -1914,7 +1914,7 @@ class dependence (object):
 
 
 #----------------------------------------------------------------------
-# emake: ¹¤³Ì±àÒë£¬Compile/Link/Build
+# emake: å·¥ç¨‹ç¼–è¯‘ï¼ŒCompile/Link/Build
 #----------------------------------------------------------------------
 class emake (object):
 	
