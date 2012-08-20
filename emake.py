@@ -963,12 +963,9 @@ class configure(object):
 		sect = sect.lower()
 		home = self.win2cyg(os.getcwd())
 		cmds = 'export LANG=C\n'
-		save = {}
-		for n in os.environ: save[n] = os.environ[n]
 		if sect in self.config:
 			for n in self.config[sect]:
 				cmds += 'export %s="%s"\n'%(n.upper(), self.config[sect][n])
-				os.environ[n.upper()] = self.config[sect][n]
 		cmds += 'cd "%s"\n'%self.win2cyg(os.getcwd())
 		if exename:
 			exename = self.win2cyg(exename)
@@ -979,14 +976,7 @@ class configure(object):
 			print '-' * 72
 			print cmds
 			print '-' * 72
-		hr = self.cygwin_bash(cmds, capture)
-		for n in save: os.environ[n] = save[n]
-		dirty = []
-		for n in os.environ: 
-			if not n in save: 
-				dirty.append(n)
-		for n in dirty: del os.environ[n]
-		return hr
+		return self.cygwin_bash(cmds, capture)
 
 
 #----------------------------------------------------------------------
