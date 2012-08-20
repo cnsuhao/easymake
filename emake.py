@@ -976,6 +976,7 @@ class configure(object):
 			print '-' * 72
 			print cmds
 			print '-' * 72
+		os.environ['EMAKECYGWIN'] = '1'
 		return self.cygwin_bash(cmds, capture)
 
 
