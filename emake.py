@@ -2279,6 +2279,32 @@ def execute(filename):
 
 
 #----------------------------------------------------------------------
+# extract param
+#----------------------------------------------------------------------
+def extract(parameter):
+	if parameter[:2] != '${' or parameter[-1:] != '}':
+		return parameter
+	data = parameter[2:-1]
+	pos = data.find(':')
+	if pos < 0:
+		return parameter
+	fname, cname = data[:pos], data[pos + 1:]
+	if not os.path.exists(fname):
+		return parameter
+	parser = iparser()
+	command = parser._scan_memo(fname)
+	value = ''
+	for lineno, text in command:
+		pos = text.find(':')
+		if pos >= 0:
+			name, data = text[:pos], text[pos + 1:]
+			name = name.strip('\r\n\t ')
+			if name == cname:
+				value = data.strip('\r\n\t ')
+	return value
+
+
+#----------------------------------------------------------------------
 # main program
 #----------------------------------------------------------------------
 def main():
@@ -2289,7 +2315,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		version = '(emake v3.04 Aug.18 2012 %s)'%sys.platform
+		version = '(emake v3.05 Aug.20 2012 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
@@ -2350,7 +2376,7 @@ def main():
 	ft2 = ('.h', '.hpp', '.hxx', '.hh', '.inc')
 	ft3 = ('.mak', '.proj', '.prj')
 
-	if cmd in ('-d', '-d', '--d', '-cmdline', '--cmdline'):
+	if cmd in ('-d', '-d', '--d', '-cmdline', '--cmdline', '-m', '--m'):
 		config = configure()
 		config.init()
 		sys.argv += ['', '', '', '', '']
@@ -2359,6 +2385,10 @@ def main():
 		parameters = ''
 		for n in [ sys.argv[i] for i in xrange(4, len(sys.argv)) ]:
 			if ' ' in n: n = '"' + n + '"'
+			if cmd in ('-m', '--m'):
+				if n[:2] == '${' and n[-1:] == '}':
+					n = extract(n)
+					if not n: continue
 			parameters += n + ' '
 		config.cmdtool(envname, exename, parameters)
 		return 0
