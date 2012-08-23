@@ -1478,7 +1478,7 @@ class iparser (object):
 			if self.scan_makefile() != 0:
 				return -2
 		if not extname in self.extnames:
-			sys.stderr.write('error: can not build a "%s" file'%extname)
+			sys.stderr.write('error: unknow file type of "%s"'%mainfile)
 			sys.stderr.flush()
 			return -3
 		if os.path.exists(mainfile) and mainfile:
@@ -2435,8 +2435,8 @@ def main():
 		config.cygwin_execute(envname, '', cmds)
 		return 0
 
-	if not ((ext in ft1) or (ext in ft2) or (ext in ft3)):
-		sys.stderr.write('error: %s: unknow file type\n'%(name))
+	if not ((ext in ft1) or (ext in ft3)):
+		sys.stderr.write('error: %s: unsupported file type\n'%(name))
 		sys.stderr.flush()
 		return -1
 
