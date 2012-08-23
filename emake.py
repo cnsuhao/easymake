@@ -306,6 +306,8 @@ class configure(object):
 		self.inited = False
 		self.fpic = 0
 		self.name = {}
+		ext = ('.c', '.cpp', '.c', '.cc', '.cxx', '.s', '.asm', '.m', '.mm')
+		self.extnames = ext
 		self.reset()
 	
 	# 配置信息复位
@@ -991,6 +993,7 @@ class coremake(object):
 		self.config = configure(self.ininame)
 		self.unix = self.config.unix
 		self.inited = 0
+		self.extnames = self.config.extnames
 		self.reset()
 	
 	# 复位配置
@@ -1019,7 +1022,7 @@ class coremake(object):
 	def objname (self, srcname, intermediate = ''):
 		part = os.path.splitext(srcname)
 		ext = part[1].lower()
-		if ext in ('.c', '.cpp', '.c', '.cc', '.cxx', '.s', '.asm', '.m', '.mm'):
+		if ext in self.extnames:
 			if intermediate:
 				name = os.path.join(intermediate, os.path.split(part[0])[-1])
 				name = os.path.abspath(name + '.o')
@@ -1334,6 +1337,7 @@ class iparser (object):
 		self.preprocessor = preprocessor()
 		self.coremake = coremake(ininame)
 		self.config = self.coremake.config
+		self.extnames = self.config.extnames
 		self.reset()
 
 	# 配置复位
@@ -1466,16 +1470,21 @@ class iparser (object):
 			sys.stderr.write('error: %s cannot be open\n'%(mainfile))
 			sys.stderr.flush()
 			return -1
-		if os.path.splitext(mainfile)[1].lower() == '.mak':
+		extname = os.path.splitext(mainfile)[1].lower()
+		if extname == '.mak':
 			mainfile = ''
 		if os.path.exists(makefile) and makefile:
 			self.makefile = makefile
 			if self.scan_makefile() != 0:
 				return -2
+		if not extname in self.extnames:
+			sys.stderr.write('error: can not build a "%s" file'%extname)
+			sys.stderr.flush()
+			return -3
 		if os.path.exists(mainfile) and mainfile:
 			self.mainfile = mainfile
 			if self.scan_mainfile() != 0:
-				return -3
+				return -4
 		if not self.out:
 			self.out = os.path.splitext(makefile)[0]
 		self.out = self.coremake.outname(self.out, self.mode)
@@ -2315,7 +2324,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		version = '(emake v3.05 Aug.20 2012 %s)'%sys.platform
+		version = '(emake v3.07 Aug.23 2012 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
