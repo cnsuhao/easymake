@@ -229,7 +229,7 @@ class preprocessor(object):
 		return outtext.getvalue()
 
 	# 过滤代码注释
-	def cleanup_memo(text):
+	def cleanup_memo (self, text):
 		content = text
 		outtext = ''
 		srctext = self.preprocess(content)
@@ -2200,7 +2200,7 @@ def getemake():
 	url2 = 'http://www.joynb.net/php/getemake.php'
 	success = True
 	content = ''
-	print 'fetching ' + url1 + ' ...',;
+	print 'fetching ', url1, ' ...',
 	sys.stdout.flush();
 	try:
 		content = urllib2.urlopen(url1).read()
@@ -2214,7 +2214,7 @@ def getemake():
 		print 'ok'
 		return content
 	success = True
-	print 'fetching ' + url2 + ' ...',;
+	print 'fetching ', url2, ' ...',
 	sys.stdout.flush();
 	try:
 		content = urllib2.urlopen(url2).read()
