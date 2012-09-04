@@ -1471,14 +1471,16 @@ class iparser (object):
 			sys.stderr.flush()
 			return -1
 		extname = os.path.splitext(mainfile)[1].lower()
+		mainsave = mainfile
 		if extname == '.mak':
 			mainfile = ''
 		if os.path.exists(makefile) and makefile:
 			self.makefile = makefile
 			if self.scan_makefile() != 0:
 				return -2
-		if not extname in self.extnames:
-			sys.stderr.write('error: unknow file type of "%s"'%mainfile)
+		ext2 = ('.mak', '.emake')
+		if (not extname in self.extnames) and (not extname in ext2):
+			sys.stderr.write('error: unknow file type of "%s"\n'%mainsave)
 			sys.stderr.flush()
 			return -3
 		if os.path.exists(mainfile) and mainfile:
@@ -2324,7 +2326,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		version = '(emake v3.07 Aug.23 2012 %s)'%sys.platform
+		version = '(emake v3.08 Sep.4 2012 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
