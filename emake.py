@@ -1478,7 +1478,7 @@ class iparser (object):
 			self.makefile = makefile
 			if self.scan_makefile() != 0:
 				return -2
-		ext2 = ('.mak', '.emake')
+		ext2 = ('.mak', '.emake', '.proj', '.prj')
 		if (not extname in self.extnames) and (not extname in ext2):
 			sys.stderr.write('error: unknow file type of "%s"\n'%mainsave)
 			sys.stderr.flush()
