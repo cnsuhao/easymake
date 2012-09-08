@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 3.04
+# emake.py - emake version 3.09
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -15,6 +15,7 @@
 # 2010.11.27   skywind   fixed link sequence with -Xlink -( -)
 # 2012.03.26   skywind   multiprocess building system, speed up
 # 2012.08.18   skywind   new 'flnk' to project
+# 2012.09.09   skywind   new system condition config, optimized
 #
 #======================================================================
 import sys, time, os
@@ -33,90 +34,97 @@ class preprocessor(object):
 	# 生成正文映射，将所有字符串及注释用 "$"和 "`"代替，排除分析干扰
 	def preprocess (self, text):
 		content = text
-		spaces = [' ', '\n', '\t', '\r']
+		spaces = (' ', '\n', '\t', '\r')
 		import cStringIO
 		srctext = cStringIO.StringIO()
+		srctext.write(text)
+		srctext.seek(0)
 		memo = 0
 		i = 0
-		while i < len(content):
+		length = len(content)
+		output = srctext.write
+		while i < length:
+			char = content[i]
+			word = content[i : i + 2]
 			if memo == 0:		# 正文中
-				if content[i:i+2] == '/*':
-					srctext.write('``')
-					i = i + 2
+				if word == '/*':
+					output('``')
+					i += 2
 					memo = 1
 					continue
-				if content[i:i+2] == '//':
-					srctext.write('``')
-					i = i + 2
+				if word == '//':
+					output('``')
+					i += 2
 					while (i < len(content)) and (content[i] != '\n'):
 						if content[i] in spaces:
-							srctext.write(content[i])
+							output(content[i])
 							i = i + 1
 							continue						
-						srctext.write('`')
+						output('`')
 						i = i + 1
 					continue
-				if content[i] == '\"':
-					srctext.write('\"')
-					i = i + 1
+				if char == '\"':
+					output('\"')
+					i += 1
 					memo = 2
 					continue
-				if content[i] == '\'':
-					srctext.write('\'')
-					i = i + 1
+				if char == '\'':
+					output('\'')
+					i += 1
 					memo = 3
 					continue
-				srctext.write(content[i])
+				output(char)
 			elif memo == 1:		# 注释中
-				if content[i:i+2] == '*/':
-					srctext.write('``')
-					i = i + 2
+				if word == '*/':
+					output('``')
+					i += 2
 					memo = 0
 					continue
-				if content[i] in spaces:
-					srctext.write(content[i])
-					i = i + 1
+				if char in spaces:
+					output(content[i])
+					i += 1
 					continue
-				srctext.write('`')
+				output('`')
 			elif memo == 2:		# 字符串中
-				if content[i:i+2] == '\\\"':
-					srctext.write('$$')
-					i = i + 2
+				if word == '\\\"':
+					output('$$')
+					i += 2
 					continue
-				if content[i:i+2] == '\\\\':
-					srctext.write('$$')
-					i = i + 2
+				if word == '\\\\':
+					output('$$')
+					i += 2
 					continue
-				if content[i] == '\"':
-					srctext.write('\"')
-					i = i + 1
+				if char == '\"':
+					output('\"')
+					i += 1
 					memo = 0
 					continue
-				if content[i] in spaces:
-					srctext.write(content[i])
-					i = i + 1
+				if char in spaces:
+					output(char)
+					i += 1
 					continue
-				srctext.write('$')
+				output('$')
 			elif memo == 3:		# 字符中
-				if content[i:i+2] == '\\\'':
-					srctext.write('$$')
-					i = i + 2
+				if word == '\\\'':
+					output('$$')
+					i += 2
 					continue
-				if content[i:i+2] == '\\\\':
-					srctext.write('$$')
-					i = i + 2
+				if word == '\\\\':
+					output('$$')
+					i += 2
 					continue
-				if content[i] == '\'':
-					srctext.write('\'')
-					i = i + 1
+				if char == '\'':
+					output('\'')
+					i += 1
 					memo = 0
 					continue
-				if content[i] in spaces:
-					srctext.write(content[i])
-					i = i + 1
+				if char in spaces:
+					output(char)
+					i += 1
 					continue
-				srctext.write('$')
-			i = i + 1
+				output('$')
+			i += 1
+		srctext.truncate()
 		return srctext.getvalue()
 
 	# 查找单一文件的头文件引用情况
@@ -127,23 +135,11 @@ class preprocessor(object):
 			fp = open(source, "r")
 		except:
 			return ''
-		number = 1
-
-		for line in fp:
-			content = content + line
-			number = number + 1
+		
+		content = '\n'.join([ line.strip('\r\n') for line in fp ])
 		fp.close()
 
-		import cStringIO
-		outtext = cStringIO.StringIO()
-		for i in xrange(0, len(content)):
-			if content[i] != '\r':
-				outtext.write(content[i])
-		content = outtext.getvalue()
-
 		srctext = self.preprocess(content)
-		blank = [ ' ', '\t', '\r', '\n', '/', '*', '$' ]
-		space = [ ' ', '\t', '/', '*', '$' ]
 
 		length = len(srctext)
 		start = 0
@@ -157,7 +153,6 @@ class preprocessor(object):
 				endup = length
 			number = number + 1
 
-			line = srctext[start:endup]
 			offset1 = srctext.find('#', start, endup)
 			if offset1 < 0: continue
 			offset2 = srctext.find('include', offset1, endup)
@@ -173,8 +168,10 @@ class preprocessor(object):
 			check = 1
 
 			for i in check_range:
-				if not (srctext[i] in [' ', '`' ]):
+				if not (srctext[i] in (' ', '`')):
 					check = 0
+					break
+
 			if check != 1:
 				continue
 			
@@ -233,7 +230,7 @@ class preprocessor(object):
 		content = text
 		outtext = ''
 		srctext = self.preprocess(content)
-		space = [ ' ', '\t', '`' ]
+		space = ( ' ', '\t', '`' )
 		start = 0
 		endup = -1
 		sized = len(srctext)
@@ -1809,6 +1806,7 @@ class dependence (object):
 			return self._mtime[fname]
 		try: mtime = os.path.getmtime(fname)
 		except: mtime = 0.0
+		mtime = float('%.6f'%mtime)
 		self._mtime[fname] = mtime
 		return mtime
 	
@@ -1850,6 +1848,7 @@ class dependence (object):
 				newtime = self.mtime(fn)
 				if newtime > oldtime:
 					update = True
+					#print '%f %f %f'%(newtime, oldtime, newtime - oldtime)
 					break
 		if update:
 			dependence = self._scan_src(srcname)
@@ -1911,7 +1910,7 @@ class dependence (object):
 			for fname in keys:
 				mtime = info[fname]
 				if ' ' in fname: fname = '"%s"'%fname
-				part.append('%s, %s'%(fname, mtime))
+				part.append('%s, %.6f'%(fname, mtime))
 			fp.write(', '.join(part) + '\n')
 		fp.close()
 		return 0
@@ -2326,7 +2325,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		version = '(emake v3.08 Sep.4 2012 %s)'%sys.platform
+		version = '(emake v3.09 Sep.9 2012 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
