@@ -648,6 +648,9 @@ class configure(object):
 				return os.path.abspath(os.path.join(dirpath, '.'))
 			if os.path.exists(os.path.join(dirpath, '../bin/gcc.exe')):
 				return os.path.abspath(os.path.join(dirpath, '..'))
+			for d in os.environ.get('PATH', '').split(';'):
+				n = os.path.abspath(os.path.join(d, 'gcc.exe'))
+				if os.path.exists(n): return os.path.join(d, '..')
 		else:
 			if os.path.exists(os.path.join(dirpath, 'bin/gcc')):
 				return os.path.abspath(os.path.join(dirpath, '.'))
@@ -657,6 +660,9 @@ class configure(object):
 				return '/usr'
 			if os.path.exists('/usr/local/bin/gcc'):
 				return '/usr/local'
+			for d in os.environ.get('PATH', '').split(':'):
+				n = os.path.abspath(os.path.join(d, 'gcc'))
+				if os.path.exists(n): return os.path.join(d, '..')
 		return ''
 	
 	# 写默认的配置文件
