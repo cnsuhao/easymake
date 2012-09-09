@@ -1720,6 +1720,33 @@ class iparser (object):
 			self.mode = command[-3:]
 			retval = self._process_src(body, fname, lineno)
 			return retval
+		if command in ('swf', 'swc'):
+			self.mode = 'exe'
+			if not self.out:
+				self.out = os.path.splitext(fname)[0] + '.' + command
+			if not self.int:
+				self.int = os.path.abspath('obj')
+			body = body.strip('\r\n\t ')
+			if command == 'swf':
+				self.push_flnk('-emit-swf')
+				pos = body.find('x')
+				if pos >= 0:
+					try:
+						t1 = int(body[:pos])
+						t2 = int(body[pos + 1:])
+					except:
+						self.error('error: %s: bad size'%body, fname, lineno)
+						return -1
+					self.push_flnk('-swf-size=%dx%d'%(t1, t2))
+				elif body:
+					self.error('error: %s: bad size'%body, fname, lineno)
+					return -1
+			else:
+				if not body:
+					self.error('error: namespace empty', fname, lineno)
+					return -1
+				self.push_flnk('-emit-swc=' + body.strip('\t\n\r '))
+			return 0
 		if command in ('imp', 'import'):
 			for name in body.replace(';', ',').split(','):
 				name = self.pathconf(name)
@@ -2331,7 +2358,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		version = '(emake v3.09 Sep.9 2012 %s)'%sys.platform
+		version = '(emake v3.10 Sep.10 2012 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
