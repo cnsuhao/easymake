@@ -1725,7 +1725,7 @@ class iparser (object):
 			if not self.out:
 				self.out = os.path.splitext(fname)[0] + '.' + command
 			if not self.int:
-				self.int = os.path.abspath('obj')
+				self.int = os.path.abspath('obj/alchemy')
 			body = body.strip('\r\n\t ')
 			if command == 'swf':
 				self.push_flnk('-emit-swf')
