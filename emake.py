@@ -1601,20 +1601,29 @@ class iparser (object):
 	
 	# 处理源文件
 	def _process_src (self, textline, fname = '', lineno = -1):
+		ext1 = ('.c', '.cpp', '.cc', '.cxx', '.asm')
+		ext2 = ('.s', '.o', '.obj', '.m', '.mm')
 		for name in textline.replace(';', ',').split(','):
 			srcname = self.pathconf(name)
 			if not srcname:
 				continue
-			absname = os.path.abspath(srcname)
-			if not os.path.exists(absname):
-				self.error('error: %s: No such file'%srcname, \
-					fname, lineno)
-				return -1
-			extname = os.path.splitext(absname)[1].lower()
-			if not extname in ('.c', '.cpp', '.cc', '.cxx', '.asm', '.s', '.o', '.obj', '.m', '.mm'):
-				self.error('error: %s: Unknow file type'%absname)
-				return -2
-			self.push_src(absname)
+			if (not '*' in srcname) and (not '?' in srcname):
+				names = [ srcname ]
+			else:
+				import glob
+				names = glob.glob(srcname)
+			for srcname in names:
+				absname = os.path.abspath(srcname)
+				if not os.path.exists(absname):
+					self.error('error: %s: No such file'%srcname, \
+						fname, lineno)
+					return -1
+				extname = os.path.splitext(absname)[1].lower()
+				if (not extname in ext1) and (not extname in ext2):
+					self.error('error: %s: Unknow file type'%absname, \
+						fname, lineno)
+					return -2
+				self.push_src(absname)
 		return 0
 
 	# 处理：分析信息
@@ -2358,7 +2367,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		version = '(emake v3.10 Sep.10 2012 %s)'%sys.platform
+		version = '(emake v3.11 Sep.19 2012 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
