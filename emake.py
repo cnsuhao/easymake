@@ -425,6 +425,14 @@ class configure(object):
 			self.haveini = True
 		return 0
 
+	# 检查 dirhome
+	def check (self):
+		if not self.dirhome:
+			sys.stderr.write('error: cannot find gcc/mingw home in config\n')
+			sys.stderr.flush()
+			sys.exit(1)
+		return 0
+
 	# 初始化
 	def init (self):
 		if self.inited:
@@ -449,24 +457,9 @@ class configure(object):
 			if self.dirhome[1:2] == ':':
 				self.dirhome = ''
 		if not self.dirhome:
-			self.dirhome = self.search()
-		if not self.dirhome:
-			sys.stderr.write('warning: cannot find gcc/mingw home\n')
-			sys.stderr.write('warning: place me in the home dir of mingw\n')
-			avail = ''
-			for path in os.environ.get('PATH', '').split(';'):
-				gccpath = os.path.abspath(os.path.join(path, 'gcc.exe'))
-				if os.path.exists(gccpath):
-					avail = os.path.abspath(os.path.join(path, '..'))		
-			if avail:
-				sys.stderr.write('warning: get gcc from $PATH env: ')
-				sys.stderr.write(avail + '\n')
-				self.dirhome = avail
-			sys.stderr.flush()
-		if not self.dirhome:
-			sys.stderr.write('error: gcc/mingw not find !!\n')
-			sys.exit(1)
-		self.dirhome = os.path.abspath(self.dirhome)
+			self.dirhome = self.__search_gcc()
+		if self.dirhome:
+			self.dirhome = os.path.abspath(self.dirhome)
 		try: 
 			cpus = self._getitem('default', 'cpu', '')
 			intval = int(cpus)
@@ -639,7 +632,7 @@ class configure(object):
 		return 0
 
 	# 搜索gcc
-	def search (self):
+	def __search_gcc (self):
 		dirpath = self.dirpath
 		if sys.platform[:3] == 'win':
 			if os.path.exists(os.path.join(dirpath, 'gcc.exe')):
@@ -1276,6 +1269,7 @@ class coremake(object):
 
 	# 编译：skipexist(是否需要跳过已有的obj文件)
 	def compile (self, skipexist = False, printmode = 0, cpus = 0):
+		self.config.check()
 		self.mkdir(os.path.abspath(self._int))
 		printcmd = False
 		if printmode & 4:
@@ -1293,6 +1287,7 @@ class coremake(object):
 	
 	# 连接：(是否跳过已有的文件)
 	def link (self, skipexist = False, printmode = 0):
+		self.config.check()
 		retval = 0
 		printcmd = False
 		if printmode & 4:
