@@ -687,9 +687,10 @@ class configure(object):
 		return path
 
 	# 刷新配置
-	def default (self, sect = 'default'):
-		self.reset()
-		self.init()
+	def default (self, sect = 'default', reset = True):
+		if reset:
+			self.reset()
+			self.init()
 		f1 = lambda n: (n[:1] != '\'' or n[-1:] != '\'') and n
 		config = lambda n: self._getitem(sect, n, '')
 		for path in config('include').replace(';', ',').split(','):
@@ -2013,6 +2014,12 @@ class emake (object):
 		return 0
 	
 	def _config (self):
+		for name, fname, lineno in self.parser.imp:
+			if not name in self.config.config:
+				self.parser.error('error: %s: No such config section'%name, \
+					fname, lineno)
+				return -1
+			self.config.default(name)
 		for inc in self.parser.inc:
 			self.config.push_inc(inc)
 			#print 'inc', inc
@@ -2034,12 +2041,6 @@ class emake (object):
 		if self.parser.mode == 'dll' and self.config.unix:
 			if self.config.fpic:
 				self.config.push_flag('-fPIC')
-		for name, fname, lineno in self.parser.imp:
-			if not name in self.config.config:
-				self.parser.error('error: %s: No such config section'%name, \
-					fname, lineno)
-				return -1
-			self.config.refresh(name)
 		for name, fname, lineno in self.parser.exp:
 			self.coremake.dllwrap(name)
 		self.config.parameters()
