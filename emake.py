@@ -687,10 +687,9 @@ class configure(object):
 		return path
 
 	# 刷新配置
-	def default (self, sect = 'default', reset = True):
-		if reset:
-			self.reset()
-			self.init()
+	def loadcfg (self, sect = 'default', reset = True):
+		self.init()
+		if reset: self.reset()
 		f1 = lambda n: (n[:1] != '\'' or n[-1:] != '\'') and n
 		config = lambda n: self._getitem(sect, n, '')
 		for path in config('include').replace(';', ',').split(','):
@@ -1016,7 +1015,8 @@ class coremake(object):
 		if not mode in ('exe', 'win', 'dll', 'lib'):
 			raise Exception("mode must in ('exe', 'win', 'dll', 'lib')")
 		self.reset()
-		self.config.default()
+		self.config.init()
+		self.config.loadcfg()
 		self._mode = mode
 		self._out = os.path.abspath(out)
 		self._int = intermediate
@@ -2019,7 +2019,7 @@ class emake (object):
 				self.parser.error('error: %s: No such config section'%name, \
 					fname, lineno)
 				return -1
-			self.config.default(name)
+			self.config.loadcfg(name, True)
 		for inc in self.parser.inc:
 			self.config.push_inc(inc)
 			#print 'inc', inc
