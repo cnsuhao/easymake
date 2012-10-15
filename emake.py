@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 3.09
+# emake.py - emake version 3.12
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -583,11 +583,8 @@ class configure(object):
 	def push_inc (self, inc):
 		path = self.path(inc)
 		if not os.path.exists(path):
-			#sys.stderr.write('warning: cannot open %s\n'%path)
+			sys.stderr.write('warning: ignore invalid path %s\n'%path)
 			return -1
-		if self.unix and path[:10] == '/cygdrive/':
-			#sys.stderr.write('warning: ignore path %s\n'%path)
-			return -2
 		path = self.pathtext(path)
 		self.inc[path] = 1
 		return 0
@@ -596,11 +593,8 @@ class configure(object):
 	def push_lib (self, lib):
 		path = self.path(lib)
 		if not os.path.exists(path):
-			#sys.stderr.write('warning: cannot open %s\n'%path)
+			sys.stderr.write('warning: ignore invalid path %s\n'%path)
 			return -1
-		if self.unix and path[:10] == '/cygdrive/':
-			#sys.stderr.write('warning: ignore path %s\n'%path)
-			return -2
 		path = self.pathtext(path)
 		self.lib[path] = 1
 		return 0
@@ -2363,7 +2357,7 @@ def main():
 	make = emake()
 	
 	if len(sys.argv) == 1:
-		version = '(emake v3.11 Sep.19 2012 %s)'%sys.platform
+		version = '(emake v3.12 Oct.15 2012 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
