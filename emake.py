@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 3.12
+# emake.py - emake version 3.13
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -2349,15 +2349,20 @@ def extract(parameter):
 #----------------------------------------------------------------------
 # main program
 #----------------------------------------------------------------------
-def main():
+def main(argv = None):
 	# using psyco to speed up
 	_psyco_speedup()
 
 	# create main object
 	make = emake()
+
+	if argv == None:
+		argv = sys.argv
 	
-	if len(sys.argv) == 1:
-		version = '(emake v3.12 Oct.15 2012 %s)'%sys.platform
+	argv = [ n for n in argv ] 
+	
+	if len(argv) == 1:
+		version = '(emake v3.13 Dec.16 2012 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
@@ -2375,8 +2380,8 @@ def main():
 
 	cmd, name = 'build', ''
 
-	if len(sys.argv) == 2:
-		name = sys.argv[1].strip(' ')
+	if len(argv) == 2:
+		name = argv[1].strip(' ')
 		if name in ('-i', '--i', '-install', '--install'):
 			install()
 			return 0
@@ -2386,7 +2391,7 @@ def main():
 		if name in ('-h', '--h', '-help', '--help'):
 			help()
 			return 0
-	if len(sys.argv) <= 3:
+	if len(argv) <= 3:
 		if name in ('-d', '-d', '--d', '-cmdline', '--cmdline'):
 			print 'usage: emake.py --cmdline envname exename [parameters]'
 			print 'call the cmdline tool in the given environment:'
@@ -2394,14 +2399,14 @@ def main():
 			print '- exename is the tool\'s executable file name'
 			return 0
 
-	if len(sys.argv) >= 3:
-		cmd = sys.argv[1].strip(' ').lower()
-		name = sys.argv[2]
+	if len(argv) >= 3:
+		cmd = argv[1].strip(' ').lower()
+		name = argv[2]
 
 	printmode = 3
 
-	for i in xrange(3, len(sys.argv)):
-		args = sys.argv[i].split('=', 1)
+	for i in xrange(3, len(argv)):
+		args = argv[i].split('=', 1)
 		opt = args[0].lower()
 		num = -1
 		if len(args) > 1: 
@@ -2421,11 +2426,11 @@ def main():
 	if cmd in ('-d', '-d', '--d', '-cmdline', '--cmdline', '-m', '--m'):
 		config = configure()
 		config.init()
-		sys.argv += ['', '', '', '', '']
-		envname = sys.argv[2]
-		exename = sys.argv[3]
+		argv += ['', '', '', '', '']
+		envname = argv[2]
+		exename = argv[3]
 		parameters = ''
-		for n in [ sys.argv[i] for i in xrange(4, len(sys.argv)) ]:
+		for n in [ argv[i] for i in xrange(4, len(argv)) ]:
 			if ' ' in n: n = '"' + n + '"'
 			if cmd in ('-m', '--m'):
 				if n[:2] == '${' and n[-1:] == '}':
@@ -2441,11 +2446,11 @@ def main():
 		if not config.cygwin:
 			print 'not find "cygwin" in "default" sect of %s'%config.ininame
 			sys.exit()
-		sys.argv += ['', '', '', '', '']
-		envname = sys.argv[2]
-		exename = sys.argv[3]
+		argv += ['', '', '', '', '']
+		envname = argv[2]
+		exename = argv[3]
 		parameters = ''
-		for n in [ sys.argv[i] for i in xrange(4, len(sys.argv)) ]:
+		for n in [ argv[i] for i in xrange(4, len(argv)) ]:
 			if ' ' in n: n = '"' + n + '"'
 			parameters += n + ' '
 		config.cygwin_execute(envname, exename, parameters)
@@ -2457,11 +2462,11 @@ def main():
 		if not config.cygwin:
 			print 'not find "cygwin" in "default" sect of %s'%config.ininame
 			sys.exit()
-		sys.argv += ['', '', '', '', '']
-		envname = sys.argv[2]
-		exename = sys.argv[3]
+		argv += ['', '', '', '', '']
+		envname = argv[2]
+		exename = argv[3]
 		parameters = ''
-		for n in [ sys.argv[i] for i in xrange(4, len(sys.argv)) ]:
+		for n in [ argv[i] for i in xrange(4, len(argv)) ]:
 			if ' ' in n: n = '"' + n + '"'
 			parameters += n + ' '
 		cmds = '"%s" %s'%(exename, parameters)
