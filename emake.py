@@ -270,6 +270,11 @@ class preprocessor(object):
 
 
 #----------------------------------------------------------------------
+# Default CFG File
+#----------------------------------------------------------------------
+ININAME = ''
+
+#----------------------------------------------------------------------
 # configure: 确定gcc位置并从配置读出默认设置
 #----------------------------------------------------------------------
 class configure(object):
@@ -280,7 +285,7 @@ class configure(object):
 		self.dirpath = os.path.join(*os.path.split(exepath)[:-1])
 		self.current = os.getcwd()
 		if not ininame:
-			ininame = 'emake.ini'
+			ininame = ININAME and ININAME or 'emake.ini'
 		self.ininame = ininame
 		self.inipath = os.path.join(self.dirpath, self.ininame)
 		self.haveini = False
@@ -2362,7 +2367,7 @@ def main(argv = None):
 	argv = [ n for n in argv ] 
 	
 	if len(argv) == 1:
-		version = '(emake v3.13 Dec.16 2012 %s)'%sys.platform
+		version = '(emake v3.14 Nov.26 2012 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
