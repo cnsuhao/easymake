@@ -894,9 +894,9 @@ class configure(object):
 		hr = self._cmdline_init(sectname, exename)
 		if type(hr) != type(''):
 			if hr == -1:
-				msg = '%s: error: can not find %s environment !!'%sectname
+				msg = 'cmdtool error: can not find %s env !!'%(sectname)
 			else:
-				msg = '%s: error: can not find tool %s !!'%(sectname, exename)
+				msg = 'cmdtool error: can not find %s exe !!'%(exename)
 			sys.stderr.write(msg + '\n')
 			sys.stderr.flush()
 			return -2
