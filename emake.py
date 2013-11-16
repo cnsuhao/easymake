@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 3.13
+# emake.py - emake version 3.15
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -296,6 +296,7 @@ class configure(object):
 		self.xlink = 1
 		self.searchdirs = None
 		self.environ = {}
+		self.platform = ''
 		self.cygwin = ''
 		for n in os.environ:
 			self.environ[n] = os.environ[n]
@@ -451,11 +452,12 @@ class configure(object):
 			self._readini('~/.%s'%os.path.splitext(self.ininame)[0])
 		self._readini(self.inipath)
 		self.dirhome = self._getitem('default', 'home', '')
+		self.platform = self._getitem('default', 'platform', '')
 		if not self.haveini:
 			#sys.stderr.write('warning: %s cannot be open\n'%(self.ininame))
 			sys.stderr.flush()
-		p1 = os.path.join(self.dirhome, 'bin/gcc.exe')
-		p2 = os.path.join(self.dirhome, 'bin/gcc')
+		p1 = os.path.join(self.dirhome, 'bin/%sgcc.exe'%self.platform)
+		p2 = os.path.join(self.dirhome, 'bin/%sgcc'%self.platform)
 		if (not os.path.exists(p1)) and (not os.path.exists(p1)):
 			self.dirhome = ''
 		if sys.platform[:3] != 'win':
@@ -844,7 +846,8 @@ class configure(object):
 		if not needlink:
 			param = self.param_compile
 		parameters = '%s %s'%(parameters, param)
-		return self.execute('gcc', parameters, printcmd, capture)
+		execute = '%sgcc'%self.platform
+		return self.execute(execute, parameters, printcmd, capture)
 
 	# 编译
 	def compile (self, srcname, objname, printcmd = False, capture = False):
@@ -867,7 +870,8 @@ class configure(object):
 	def makelib (self, output, objs = [], printcmd = False, capture = False):
 		name = ' '.join([ self.pathrel(n) for n in objs ])
 		parameters = 'crv %s %s'%(self.pathrel(output), name)
-		return self.execute('ar', parameters, printcmd, capture)
+		execute = '%sar'%self.platform
+		return self.execute(execute, parameters, printcmd, capture)
 	
 	# 生成动态链接：dll 或者 so
 	def makedll (self, output, objs = [], param = '', printcmd = False, capture = False):
@@ -2367,7 +2371,7 @@ def main(argv = None):
 	argv = [ n for n in argv ] 
 	
 	if len(argv) == 1:
-		version = '(emake v3.14 Nov.26 2012 %s)'%sys.platform
+		version = '(emake v3.15 Nov.17 2013 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
