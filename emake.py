@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 3.15
+# emake.py - emake version 3.16
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -281,8 +281,7 @@ class configure(object):
 
 	# 构造函数
 	def __init__ (self, ininame = ''):
-		exepath = os.path.abspath(os.path.join(os.getcwd(), sys.argv[0]))
-		self.dirpath = os.path.join(*os.path.split(exepath)[:-1])
+		self.dirpath = os.path.split(os.path.abspath(__file__))[0]
 		self.current = os.getcwd()
 		if not ininame:
 			ininame = ININAME and ININAME or 'emake.ini'
@@ -635,27 +634,28 @@ class configure(object):
 	# 搜索gcc
 	def __search_gcc (self):
 		dirpath = self.dirpath
+		gcc = self.platform + 'gcc'
 		if sys.platform[:3] == 'win':
-			if os.path.exists(os.path.join(dirpath, 'gcc.exe')):
+			if os.path.exists(os.path.join(dirpath, '%s.exe'%gcc)):
 				return os.path.abspath(os.path.join(dirpath, '..'))
-			if os.path.exists(os.path.join(dirpath, 'bin/gcc.exe')):
+			if os.path.exists(os.path.join(dirpath, 'bin/%s.exe'%gcc)):
 				return os.path.abspath(os.path.join(dirpath, '.'))
-			if os.path.exists(os.path.join(dirpath, '../bin/gcc.exe')):
+			if os.path.exists(os.path.join(dirpath, '../bin/%s.exe'%gcc)):
 				return os.path.abspath(os.path.join(dirpath, '..'))
 			for d in os.environ.get('PATH', '').split(';'):
-				n = os.path.abspath(os.path.join(d, 'gcc.exe'))
+				n = os.path.abspath(os.path.join(d, '%s.exe'%gcc))
 				if os.path.exists(n): return os.path.join(d, '..')
 		else:
-			if os.path.exists(os.path.join(dirpath, 'bin/gcc')):
+			if os.path.exists(os.path.join(dirpath, 'bin/%s'%gcc)):
 				return os.path.abspath(os.path.join(dirpath, '.'))
-			if os.path.exists('/bin/gcc'):
+			if os.path.exists('/bin/%s'%gcc):
 				return '/'
-			if os.path.exists('/usr/bin/gcc'):
+			if os.path.exists('/usr/bin/%s'%gcc):
 				return '/usr'
-			if os.path.exists('/usr/local/bin/gcc'):
+			if os.path.exists('/usr/local/bin/%s'%gcc):
 				return '/usr/local'
 			for d in os.environ.get('PATH', '').split(':'):
-				n = os.path.abspath(os.path.join(d, 'gcc'))
+				n = os.path.abspath(os.path.join(d, '%s'%gcc))
 				if os.path.exists(n): return os.path.join(d, '..')
 		return ''
 	
@@ -2371,7 +2371,7 @@ def main(argv = None):
 	argv = [ n for n in argv ] 
 	
 	if len(argv) == 1:
-		version = '(emake v3.15 Nov.17 2013 %s)'%sys.platform
+		version = '(emake v3.16 Nov.18 2013 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
