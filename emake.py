@@ -2482,7 +2482,7 @@ def main(argv = None):
 		config.cygwin_execute(envname, '', cmds)
 		return 0
 
-	if cmd in ('dump', '-dump', '--dump'):
+	if cmd == '--dump':
 		if not name: name = '.'
 		if not os.path.exists(name):
 			print 'can not read: %s'%name
