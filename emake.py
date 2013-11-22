@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 3.16
+# emake.py - emake version 3.17
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -2371,7 +2371,7 @@ def main(argv = None):
 	argv = [ n for n in argv ] 
 	
 	if len(argv) == 1:
-		version = '(emake v3.16 Nov.18 2013 %s)'%sys.platform
+		version = '(emake v3.17 Nov.23 2013 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
@@ -2480,6 +2480,28 @@ def main(argv = None):
 			parameters += n + ' '
 		cmds = '"%s" %s'%(exename, parameters)
 		config.cygwin_execute(envname, '', cmds)
+		return 0
+
+	if cmd in ('dump', '-dump', '--dump'):
+		if not name: name = '.'
+		if not os.path.exists(name):
+			print 'can not read: %s'%name
+			return -1
+		for root, dirs, files in os.walk(name):
+			for fn in files:
+				if os.path.splitext(fn)[-1].lower() in ('.c', '.cpp', '.cc'):
+					xp = os.path.join(root, fn)
+					if sys.platform[:3] == 'win':
+						xp = xp.replace('\\', '/')
+					if xp[:2] == './': 
+						xp = xp[2:]
+					print 'src: ' + xp
+			if 'CVS' in dirs:
+				dirs.remove('CVS')  # don't visit CVS directories
+			if '.svn' in dirs:
+				dirs.remove('.svn')
+			if '.git' in dirs:
+				dirs.remove('.git')
 		return 0
 
 	if not ((ext in ft1) or (ext in ft3)):
