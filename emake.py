@@ -839,7 +839,8 @@ class configure(object):
 		stdouterr.close()
 		if p: p.wait()
 		if not capture:
-			if text: print text
+			sys.stdout.write(text)
+			sys.stdout.flush()
 			return ''
 		return text
 
