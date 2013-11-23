@@ -503,6 +503,7 @@ class configure(object):
 			self.name['nt'] = 1
 		names = self._getitem('default', 'name')
 		if names:
+			self.name = {}
 			for name in names.replace(';', ',').split(','):
 				if not name: continue
 				self.name[name.lower()] = 1
