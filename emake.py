@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 3.18
+# emake.py - emake version 3.19
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -839,7 +839,7 @@ class configure(object):
 		stdouterr.close()
 		if p: p.wait()
 		if not capture:
-			print text
+			if text: print text
 			return ''
 		return text
 
@@ -2374,7 +2374,7 @@ def main(argv = None):
 	argv = [ n for n in argv ] 
 	
 	if len(argv) == 1:
-		version = '(emake v3.18 Nov.23 2013 %s)'%sys.platform
+		version = '(emake v3.19 Nov.23 2013 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
