@@ -505,6 +505,7 @@ class configure(object):
 		if names:
 			self.name = {}
 			for name in names.replace(';', ',').split(','):
+				name = name.strip('\r\n\t ')
 				if not name: continue
 				self.name[name.lower()] = 1
 		if sys.platform[:3] in ('win', 'cyg'):
