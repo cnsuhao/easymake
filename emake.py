@@ -1732,7 +1732,7 @@ class iparser (object):
 			return 0
 		if command in ('cexe', 'clib', 'cdll' ,'cwin', 'exe', 'dll', 'win'):
 			if not self.int:
-				self.int = os.path.abspath('obj')
+				self.int = os.path.abspath(os.path.join('obj', sys.platform))
 			self.mode = command[-3:]
 			retval = self._process_src(body, fname, lineno)
 			return retval
@@ -2379,7 +2379,7 @@ def main(argv = None):
 	argv = [ n for n in argv ] 
 	
 	if len(argv) == 1:
-		version = '(emake v3.19 Nov.23 2013 %s)'%sys.platform
+		version = '(emake v3.20 Nov.23 2013 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
