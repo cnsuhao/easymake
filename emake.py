@@ -495,6 +495,8 @@ class configure(object):
 			self.name['unix'] = 1
 		if sys.platform == 'cygwin':
 			self.name['unix'] = 1
+		if sys.platform[:5] == 'sunos':
+			self.name['sunos'] = 1
 		if os.name == 'posix':
 			self.name['unix'] = 1
 		if os.name == 'nt':
