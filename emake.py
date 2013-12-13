@@ -2374,16 +2374,13 @@ def main(argv = None):
 	# using psyco to speed up
 	_psyco_speedup()
 
-	# create main object
-	make = emake()
-
 	if argv == None:
 		argv = sys.argv
 	
 	argv = [ n for n in argv ] 
 	
 	if len(argv) == 1:
-		version = '(emake v3.20 Nov.23 2013 %s)'%sys.platform
+		version = '(emake v3.21 Dec.14 2013 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
@@ -2398,6 +2395,21 @@ def main(argv = None):
 		print '            -u | -update     update itself from google code'
 		print '            -h | -help       show help page'
 		return 0
+
+	match = '--ini='
+	ininame = ''
+
+	for i in xrange(len(argv)):
+		if argv[i][:len(match)] == match:
+			ininame = os.path.abspath(argv[i][len(match):].strip())
+			argv.pop(i)
+			break
+	
+	if not os.path.exists(ininame):
+		ininame = ''
+
+	# create main object
+	make = emake(ininame)
 
 	cmd, name = 'build', ''
 
@@ -2445,7 +2457,7 @@ def main(argv = None):
 	ft3 = ('.mak', '.proj', '.prj')
 
 	if cmd in ('-d', '-d', '--d', '-cmdline', '--cmdline', '-m', '--m'):
-		config = configure()
+		config = configure(ininame)
 		config.init()
 		argv += ['', '', '', '', '']
 		envname = argv[2]
@@ -2462,7 +2474,7 @@ def main(argv = None):
 		return 0
 	
 	if cmd in ('-g', '--g', '-cygwin', '--cygwin'):
-		config = configure()
+		config = configure(ininame)
 		config.init()
 		if not config.cygwin:
 			print 'not find "cygwin" in "default" sect of %s'%config.ininame
@@ -2478,7 +2490,7 @@ def main(argv = None):
 		return 0
 
 	if cmd in ('-s', '--s', '-cshell', '--cshell'):
-		config = configure()
+		config = configure(ininame)
 		config.init()
 		if not config.cygwin:
 			print 'not find "cygwin" in "default" sect of %s'%config.ininame
