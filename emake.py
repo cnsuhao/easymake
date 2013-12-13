@@ -444,11 +444,15 @@ class configure(object):
 			return 0
 		self.config = {}
 		self.reset()
-		if self.unix:
-			self._readini('/etc/%s'%self.ininame)
-			self._readini('/usr/local/etc/%s'%self.ininame)
-			self._readini('~/%s'%self.ininame)
-			self._readini('~/.%s'%os.path.splitext(self.ininame)[0])
+		fn = os.environ.get('EMAKE', None)
+		if fn and os.path.exists(fn):
+			self._readini(fn)
+		else:
+			if self.unix:
+				self._readini('/etc/%s'%self.ininame)
+				self._readini('/usr/local/etc/%s'%self.ininame)
+				self._readini('~/%s'%self.ininame)
+				self._readini('~/.%s'%os.path.splitext(self.ininame)[0])
 		self._readini(self.inipath)
 		self.dirhome = self._getitem('default', 'home', '')
 		self.platform = self._getitem('default', 'platform', '')
