@@ -273,6 +273,7 @@ class preprocessor(object):
 # Default CFG File
 #----------------------------------------------------------------------
 ININAME = ''
+INIPATH = ''
 
 #----------------------------------------------------------------------
 # configure: 确定gcc位置并从配置读出默认设置
@@ -444,7 +445,7 @@ class configure(object):
 			return 0
 		self.config = {}
 		self.reset()
-		fn = os.environ.get('EMAKE', None)
+		fn = INIPATH
 		if fn and os.path.exists(fn):
 			self._readini(fn)
 		else:
@@ -2374,13 +2375,16 @@ def main(argv = None):
 	# using psyco to speed up
 	_psyco_speedup()
 
+	# create main object
+	make = emake()
+
 	if argv == None:
 		argv = sys.argv
 	
 	argv = [ n for n in argv ] 
 	
 	if len(argv) == 1:
-		version = '(emake v3.21 Dec.14 2013 %s)'%sys.platform
+		version = '(emake v3.22 Dec.14 2013 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
@@ -2397,19 +2401,17 @@ def main(argv = None):
 		return 0
 
 	match = '--ini='
-	ininame = ''
+	inipath = ''
 
 	for i in xrange(len(argv)):
 		if argv[i][:len(match)] == match:
-			ininame = os.path.abspath(argv[i][len(match):].strip())
+			inipath = os.path.abspath(argv[i][len(match):].strip())
 			argv.pop(i)
 			break
 	
-	if not os.path.exists(ininame):
-		ininame = ''
-
-	# create main object
-	make = emake(ininame)
+	if os.path.exists(inipath):
+		global INIPATH
+		INIPATH = inipath
 
 	cmd, name = 'build', ''
 
@@ -2457,7 +2459,7 @@ def main(argv = None):
 	ft3 = ('.mak', '.proj', '.prj')
 
 	if cmd in ('-d', '-d', '--d', '-cmdline', '--cmdline', '-m', '--m'):
-		config = configure(ininame)
+		config = configure()
 		config.init()
 		argv += ['', '', '', '', '']
 		envname = argv[2]
@@ -2474,7 +2476,7 @@ def main(argv = None):
 		return 0
 	
 	if cmd in ('-g', '--g', '-cygwin', '--cygwin'):
-		config = configure(ininame)
+		config = configure()
 		config.init()
 		if not config.cygwin:
 			print 'not find "cygwin" in "default" sect of %s'%config.ininame
@@ -2490,7 +2492,7 @@ def main(argv = None):
 		return 0
 
 	if cmd in ('-s', '--s', '-cshell', '--cshell'):
-		config = configure(ininame)
+		config = configure()
 		config.init()
 		if not config.cygwin:
 			print 'not find "cygwin" in "default" sect of %s'%config.ininame
