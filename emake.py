@@ -462,7 +462,7 @@ class configure(object):
 			sys.stderr.flush()
 		p1 = os.path.join(self.dirhome, 'bin/%sgcc.exe'%self.platform)
 		p2 = os.path.join(self.dirhome, 'bin/%sgcc'%self.platform)
-		if (not os.path.exists(p1)) and (not os.path.exists(p1)):
+		if (not os.path.exists(p1)) and (not os.path.exists(p2)):
 			self.dirhome = ''
 		if sys.platform[:3] != 'win':
 			if self.dirhome[1:2] == ':':
