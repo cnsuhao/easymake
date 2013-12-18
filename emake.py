@@ -290,13 +290,14 @@ class configure(object):
 		self.inipath = os.path.join(self.dirpath, self.ininame)
 		self.haveini = False
 		self.dirhome = ''
+		self.target = ''
 		self.config = {}
 		self.cp = ConfigParser.ConfigParser()
 		self.unix = 1
 		self.xlink = 1
 		self.searchdirs = None
 		self.environ = {}
-		self.platform = ''
+		self.exename = {}
 		self.cygwin = ''
 		for n in os.environ:
 			self.environ[n] = os.environ[n]
@@ -422,19 +423,35 @@ class configure(object):
 		if self.unix and '~' in inipath:
 			inipath = os.path.expanduser(inipath)
 		if os.path.exists(inipath):
+			config = {}
 			try: self.cp.read(inipath)
 			except: pass
 			for sect in self.cp.sections():
 				for key, val in self.cp.items(sect):
 					lowsect, lowkey = sect.lower(), key.lower()
 					self.config.setdefault(lowsect, {})[lowkey] = val
+					config.setdefault(lowsect, {})[lowkey] = val
+			config['default'] = config.get('default', {})
+			inihome = os.path.abspath(os.path.split(inipath)[0])
+			dirhome = config['default'].get('home', '')
+			if dirhome:
+				dirhome = os.path.join(inihome, dirhome)
+				if not os.path.exists(dirhome):
+					sys.stderr.write('error: %s: %s not exists\n'%(inipath, dirhome))
+					sys.stderr.flush()
+				else:
+					self.config['default']['home'] = dirhome
+			for exename in ('gcc', 'ld', 'ar', 'dllwrap'):
+				if not exename in config['default']:
+					continue
+				self.exename[exename] = config['default'][exename]
 			self.haveini = True
 		return 0
 
 	# 检查 dirhome
 	def check (self):
 		if not self.dirhome:
-			sys.stderr.write('error: cannot find gcc/mingw home in config\n')
+			sys.stderr.write('error: cannot find gcc home in config\n')
 			sys.stderr.flush()
 			sys.exit(1)
 		return 0
@@ -446,28 +463,40 @@ class configure(object):
 		self.config = {}
 		self.reset()
 		fn = INIPATH
-		if fn and os.path.exists(fn):
-			self._readini(fn)
+		if fn:
+			if os.path.exists(fn):
+				self._readini(fn)
+			else:
+				sys.stderr.write('error: cannot open %s\n'%fn)
+				sys.stderr.flush()
+				sys.exit(1)
 		else:
 			if self.unix:
 				self._readini('/etc/%s'%self.ininame)
 				self._readini('/usr/local/etc/%s'%self.ininame)
 				self._readini('~/%s'%self.ininame)
 				self._readini('~/.%s'%os.path.splitext(self.ininame)[0])
-		self._readini(self.inipath)
+			self._readini(self.inipath)
 		self.dirhome = self._getitem('default', 'home', '')
-		self.platform = self._getitem('default', 'platform', '')
+		cfghome = self.dirhome
 		if not self.haveini:
 			#sys.stderr.write('warning: %s cannot be open\n'%(self.ininame))
 			sys.stderr.flush()
-		p1 = os.path.join(self.dirhome, 'bin/%sgcc.exe'%self.platform)
-		p2 = os.path.join(self.dirhome, 'bin/%sgcc'%self.platform)
+		for name in ('gcc', 'ar', 'ld', 'dllwrap'):
+			exename = self.exename.get(name, name)
+			if not self.unix:
+				elements = list(os.path.splitext(exename)) + ['', '']
+				if not elements[1]: exename = elements[0] + '.exe'
+			self.exename[name] = exename
+		gcc = self.exename['gcc']
+		p1 = os.path.join(self.dirhome, '%s.exe'%gcc)
+		p2 = os.path.join(self.dirhome, '%s'%gcc)
 		if (not os.path.exists(p1)) and (not os.path.exists(p2)):
 			self.dirhome = ''
 		if sys.platform[:3] != 'win':
 			if self.dirhome[1:2] == ':':
 				self.dirhome = ''
-		if not self.dirhome:
+		if (not self.dirhome) and (not cfghome):
 			self.dirhome = self.__search_gcc()
 		if self.dirhome:
 			self.dirhome = os.path.abspath(self.dirhome)
@@ -508,13 +537,19 @@ class configure(object):
 			self.name['win'] = 1
 		if 'win' in self.name:
 			self.name['nt'] = 1
+		self.target = self._getitem('default', 'target')
 		names = self._getitem('default', 'name')
 		if names:
 			self.name = {}
 			for name in names.replace(';', ',').split(','):
-				name = name.strip('\r\n\t ')
+				name = name.strip('\r\n\t ').lower()
 				if not name: continue
-				self.name[name.lower()] = 1
+				self.name[name] = 1
+				if not self.target:
+					self.target = name
+		if not self.target:
+			self.target = sys.platform
+		self.target = self.target.strip('\r\n\t ')
 		if sys.platform[:3] in ('win', 'cyg'):
 			self.fpic = False
 		else:
@@ -643,29 +678,28 @@ class configure(object):
 	# 搜索gcc
 	def __search_gcc (self):
 		dirpath = self.dirpath
-		gcc = self.platform + 'gcc'
-		if sys.platform[:3] == 'win':
-			if os.path.exists(os.path.join(dirpath, '%s.exe'%gcc)):
-				return os.path.abspath(os.path.join(dirpath, '..'))
-			if os.path.exists(os.path.join(dirpath, 'bin/%s.exe'%gcc)):
-				return os.path.abspath(os.path.join(dirpath, '.'))
-			if os.path.exists(os.path.join(dirpath, '../bin/%s.exe'%gcc)):
-				return os.path.abspath(os.path.join(dirpath, '..'))
-			for d in os.environ.get('PATH', '').split(';'):
-				n = os.path.abspath(os.path.join(d, '%s.exe'%gcc))
-				if os.path.exists(n): return os.path.join(d, '..')
-		else:
-			if os.path.exists(os.path.join(dirpath, 'bin/%s'%gcc)):
-				return os.path.abspath(os.path.join(dirpath, '.'))
+		gcc = self.exename['gcc']
+		splitter = self.unix and ':' or ';'
+		if os.path.exists(os.path.join(dirpath, '%s'%gcc)):
+			return os.path.abspath(dirpath)
+		if os.path.exists(os.path.join(dirpath, 'bin/%s'%gcc)):
+			return os.path.abspath(os.path.join(dirpath, 'bin'))
+		for d in os.environ.get('PATH', '').split(splitter):
+			n = os.path.abspath(os.path.join(d, '%s'%gcc))
+			if os.path.exists(n): return n
+		if self.unix:
 			if os.path.exists('/bin/%s'%gcc):
-				return '/'
+				return '/bin'
 			if os.path.exists('/usr/bin/%s'%gcc):
-				return '/usr'
+				return '/usr/bin'
 			if os.path.exists('/usr/local/bin/%s'%gcc):
-				return '/usr/local'
-			for d in os.environ.get('PATH', '').split(':'):
-				n = os.path.abspath(os.path.join(d, '%s'%gcc))
-				if os.path.exists(n): return os.path.join(d, '..')
+				return '/usr/local/bin'
+			if os.path.exists('/opt/bin/%s'%gcc):
+				return '/opt/bin'
+			if os.path.exists('/opt/usr/bin/%s'%gcc):
+				return '/opt/usr/bin'
+			if os.path.exists('/opt/usr/local/bin/%s'%gcc):
+				return '/opt/usr/local/bin'
 		return ''
 	
 	# 写默认的配置文件
@@ -805,7 +839,7 @@ class configure(object):
 	
 	# 执行GNU工具集
 	def execute (self, binname, parameters, printcmd = False, capture = False):
-		path = os.path.abspath(os.path.join(self.dirhome, 'bin', binname))
+		path = os.path.abspath(os.path.join(self.dirhome, binname))
 		if not self.unix:
 			name = self.pathshort(path)
 			if (not name) and os.path.exists(path + '.exe'):
@@ -859,8 +893,7 @@ class configure(object):
 		if not needlink:
 			param = self.param_compile
 		parameters = '%s %s'%(parameters, param)
-		execute = '%sgcc'%self.platform
-		return self.execute(execute, parameters, printcmd, capture)
+		return self.execute(self.exename['gcc'], parameters, printcmd, capture)
 
 	# 编译
 	def compile (self, srcname, objname, printcmd = False, capture = False):
@@ -877,14 +910,14 @@ class configure(object):
 		for flnk in self.sequence(self.flnk):
 			text += '%s '%flnk
 		parameters = '%s %s'%(parameters, text)
-		return self.execute('dllwrap', parameters, printcmd, capture)
+		dllwrap = self.exename.get('dllwrap', 'dllwrap')
+		return self.execute(dllwrap, parameters, printcmd, capture)
 	
 	# 生成lib库
 	def makelib (self, output, objs = [], printcmd = False, capture = False):
 		name = ' '.join([ self.pathrel(n) for n in objs ])
 		parameters = 'crv %s %s'%(self.pathrel(output), name)
-		execute = '%sar'%self.platform
-		return self.execute(execute, parameters, printcmd, capture)
+		return self.execute(self.exename['ar'], parameters, printcmd, capture)
 	
 	# 生成动态链接：dll 或者 so
 	def makedll (self, output, objs = [], param = '', printcmd = False, capture = False):
@@ -1663,6 +1696,8 @@ class iparser (object):
 			if not match:
 				#print '"%s" not in %s'%(condition, self.config.name)
 				return 0
+		if '$(target)' in body and self.target:
+			body = body.replace('$(target)', self.target)
 		if command in ('out', 'output'):
 			self.out = os.path.abspath(self.pathconf(body))
 			return 0
@@ -2382,9 +2417,18 @@ def main(argv = None):
 		argv = sys.argv
 	
 	argv = [ n for n in argv ] 
-	
+
+	match = '--ini='
+	inipath = ''
+
+	for i in xrange(len(argv)):
+		if argv[i][:len(match)] == match:
+			inipath = os.path.abspath(argv[i][len(match):].strip())
+			argv.pop(i)
+			break
+
 	if len(argv) == 1:
-		version = '(emake v3.22 Dec.14 2013 %s)'%sys.platform
+		version = '(emake v3.23 Dec.18 2013 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
@@ -2399,19 +2443,24 @@ def main(argv = None):
 		print '            -u | -update     update itself from google code'
 		print '            -h | -help       show help page'
 		return 0
-
-	match = '--ini='
-	inipath = ''
-
-	for i in xrange(len(argv)):
-		if argv[i][:len(match)] == match:
-			inipath = os.path.abspath(argv[i][len(match):].strip())
-			argv.pop(i)
-			break
 	
 	if os.path.exists(inipath):
 		global INIPATH
 		INIPATH = inipath
+	elif inipath:
+		sys.stderr.write('error: not find %s\n'%inipath)
+		sys.stderr.flush()
+		return -1
+	
+	if argv[1] == '--check':
+		make.config.init()
+		make.config.check()
+		dirhome = make.config.dirhome
+		print 'home:', dirhome
+		print 'gcc:', os.path.join(dirhome, make.config.exename['gcc'])
+		print 'name:', make.config.name.keys()
+		print 'target:', make.config.target
+		return 0
 
 	cmd, name = 'build', ''
 
