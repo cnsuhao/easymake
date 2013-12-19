@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 3.24
+# emake.py - emake version 3.26
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -687,7 +687,7 @@ class configure(object):
 			return os.path.abspath(os.path.join(dirpath, 'bin'))
 		for d in os.environ.get('PATH', '').split(splitter):
 			n = os.path.abspath(os.path.join(d, '%s'%gcc))
-			if os.path.exists(n): return n
+			if os.path.exists(n): return os.path.abspath(d)
 		if self.unix:
 			if os.path.exists('/bin/%s'%gcc):
 				return '/bin'
@@ -2429,7 +2429,7 @@ def main(argv = None):
 			break
 
 	if len(argv) == 1:
-		version = '(emake v3.25 Dec.19 2013 %s)'%sys.platform
+		version = '(emake v3.26 Dec.19 2013 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
