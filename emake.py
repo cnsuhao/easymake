@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 3.19
+# emake.py - emake version 3.24
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -16,6 +16,7 @@
 # 2012.03.26   skywind   multiprocess building system, speed up
 # 2012.08.18   skywind   new 'flnk' to project
 # 2012.09.09   skywind   new system condition config, optimized
+# 2013.12.19   skywind   new $(target) config
 #
 #======================================================================
 import sys, time, os
@@ -1696,8 +1697,8 @@ class iparser (object):
 			if not match:
 				#print '"%s" not in %s'%(condition, self.config.name)
 				return 0
-		if '$(target)' in body and self.target:
-			body = body.replace('$(target)', self.target)
+		if '$(target)' in body and self.config.target:
+			body = body.replace('$(target)', self.config.target)
 		if command in ('out', 'output'):
 			self.out = os.path.abspath(self.pathconf(body))
 			return 0
@@ -2428,7 +2429,7 @@ def main(argv = None):
 			break
 
 	if len(argv) == 1:
-		version = '(emake v3.23 Dec.18 2013 %s)'%sys.platform
+		version = '(emake v3.24 Dec.19 2013 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
