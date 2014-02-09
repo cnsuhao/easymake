@@ -1389,6 +1389,8 @@ class coremake(object):
 		environ = {}
 		for k, v in self._environ.items():
 			environ[k] = v
+		environ['EMAKE'] = os.path.abspath(__file__)
+		environ['EMAKEP'] = os.path.dirname(os.path.abspath(__file__))
 		environ['EMHOME'] = self.config.dirhome
 		environ['EMOUT'] = self._out
 		environ['EMINT'] = self._int
@@ -1906,14 +1908,8 @@ class iparser (object):
 		if command == 'color':
 			self.console(int(body.strip('\r\n\t '), 0))
 			return 0
-		if command == 'prebuild':
-			self.push_event('prebuild', body)
-			return 0
-		if command == 'prelink':
-			self.push_event('prelink', body)
-			return 0
-		if command == 'postbuild':
-			self.push_event('postbuild', body)
+		if command in ('prebuild', 'prelink', 'postbuild'):
+			self.push_event(command, body)
 			return 0
 		if command == 'environ':
 			for name in body.replace(';', ',').split(','):
@@ -2281,6 +2277,12 @@ class emake (object):
 			sys.stderr.flush()
 			return -2
 		os.system('"%s"'%outname)
+		return 0
+	
+	def call (self, cmdline):
+		if not self.loaded:
+			return -10
+		self.coremake.event([cmdline])
 		return 0
 		
 	def info (self, name = ''):
@@ -2713,6 +2715,9 @@ def main(argv = None):
 	elif cmd in ('e', '-e', '--e', 'execute', '-execute', '--execute'):
 		make.open(name)
 		make.execute()
+	elif cmd in ('a', '-a', '--a', 'call', '-call', '--call'):
+		make.open(name)
+		make.call(' '.join(argv[3:]))
 	elif cmd in ('o', '-o', '--o', 'out', '-out', '--out'):
 		make.open(name)
 		make.info('outname');
