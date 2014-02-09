@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #======================================================================
 #
-# emake.py - emake version 3.26
+# emake.py - emake version 3.30
 #
 # history of this file:
 # 2009.08.20   skywind   create this file
@@ -17,6 +17,7 @@
 # 2012.08.18   skywind   new 'flnk' to project
 # 2012.09.09   skywind   new system condition config, optimized
 # 2013.12.19   skywind   new $(target) config
+# 2014.02.09   skywind   new build-event and environ
 #
 #======================================================================
 import sys, time, os
@@ -374,23 +375,28 @@ class configure(object):
 		return config
 
 	# 展开配置宏
-	def _expand (self, section, environ, item, text):
+	def _expand (self, section, environ, item, text, d = 0):
 		if not environ: environ = {}
 		if not section: section = {}
-		if not '%' in text: return text
-		part = text.split('%')
-		if len(part) % 2 == 0: return text
-		lookup = {}
-		for pos in xrange(len(part)):
-			if pos % 2 == 1: lookup[part[pos]] = ''
-		for name in lookup:
+		if d >= 20: return text
+		names = {}
+		index = 0
+		while 1:
+			index = text.find('$(', index)
+			if index < 0: break
+			p2 = text.find(')', index)
+			if p2 < 0: break
+			name = text[index + 2:p2]
+			index = p2 + 1
+			names[name] = ''
+		for name in names:
 			if (name in section) and (name != item):
-				value = self._expand(section, environ, name, section[name])
+				value = self._expand(section, environ, name, section[name], d + 1)
 			elif name in environ:
-				value = self._expand(section, environ, name, environ[name])
+				value = self._expand(section, environ, name, environ[name], d + 1)
 			else:
-				value = ''
-			text = text.replace('%' + name + '%', value)
+				continue
+			text = text.replace('$(' + name + ')', value)
 		return text
 	
 	# 取得短文件名
@@ -1040,6 +1046,9 @@ class coremake(object):
 		self.unix = self.config.unix
 		self.inited = 0
 		self.extnames = self.config.extnames
+		self.envos = {}
+		for k, v in os.environ.items():
+			self.envos[k] = v
 		self.reset()
 	
 	# 复位配置
@@ -1047,19 +1056,22 @@ class coremake(object):
 		self.config.reset()
 		self._out = ''		# 最终输出的文件，比如abc.exe
 		self._int = ''		# 中间文件的目录
+		self._main = ''		# 主文件(工程文件)
 		self._mode = 'exe'	# exe win dll lib
 		self._src = []		# 源代码
 		self._obj = []		# 目标文件
 		self._export = {}	# DLL导出配置
+		self._environ = {}	# 环境变量
 		self.inited = 0
 		
 	# 初始化：设置工程名字，类型，以及中间文件的目录
-	def init (self, out = 'a.out', mode = 'exe', intermediate = ''):
+	def init (self, main, out = 'a.out', mode = 'exe', intermediate = ''):
 		if not mode in ('exe', 'win', 'dll', 'lib'):
 			raise Exception("mode must in ('exe', 'win', 'dll', 'lib')")
 		self.reset()
 		self.config.init()
 		self.config.loadcfg()
+		self._main = os.path.abspath(main)
 		self._mode = mode
 		self._out = os.path.abspath(out)
 		self._int = intermediate
@@ -1365,6 +1377,47 @@ class coremake(object):
 			return ''
 		return output
 	
+	# 执行编译事件
+	def event (self, scripts):
+		if not scripts:
+			return False
+		# 保存环境
+		envsave = {}
+		for k, v in os.environ.items(): 
+			envsave[k] = v
+		# 初始化环境
+		environ = {}
+		for k, v in self._environ.items():
+			environ[k] = v
+		environ['EMHOME'] = self.config.dirhome
+		environ['EMOUT'] = self._out
+		environ['EMINT'] = self._int
+		environ['EMMAIN'] = self._main
+		environ['EMPATH'] = os.path.dirname(self._main)
+		environ['EMMODE'] = self._mode
+		for k, v in environ.items():	# 展开宏
+			environ[k] = self.config._expand(environ, envsave, k, v)
+		for k, v in environ.items():
+			os.environ[k] = v
+		# 执行应用
+		workdir = os.path.dirname(self._main)
+		savecwd = os.getcwd()
+		for script in scripts:
+			kk = '==EMAKESCRIPT=='
+			script = self.config._expand(environ, envsave, kk, script)
+			if savecwd != workdir: 
+				os.chdir(workdir)
+			os.system(script)
+		os.chdir(savecwd)
+		# 恢复环境
+		for k, v in envsave.items():
+			if os.environ.get(k) != v: 
+				os.environ[k] = v
+		for k in os.environ.keys():
+			if not k in envsave: 
+				del os.environ[k]
+		return True
+	
 	# 编译与连接
 	def build (self, skipexist = False, printmode = 0):
 		if self.compile(skipexist, printmode) != 0:
@@ -1399,6 +1452,8 @@ class iparser (object):
 		self.link = []
 		self.flag = []
 		self.flnk = []
+		self.environ = {}
+		self.events = {}
 		self.mode = 'exe'
 		self.define = {}
 		self.name = ''
@@ -1406,6 +1461,8 @@ class iparser (object):
 		self.info = 3
 		self.out = ''
 		self.int = ''
+		self.mainfile = ''
+		self.makefile = ''
 		self.incdict = {}
 		self.libdict = {}
 		self.srcdict = {}
@@ -1506,6 +1563,16 @@ class iparser (object):
 		self.expdict[name] = len(self.exp)
 		self.exp.append((name, fname, lineno))
 	
+	# 添加环境变量
+	def push_environ (self, name, value):
+		self.environ[name] = value
+	
+	# 添加编译事件
+	def push_event (self, name, value):
+		if not name in self.events:
+			self.events[name] = []
+		self.events[name].append(value)
+	
 	# 分析开始
 	def parse (self, mainfile):
 		self.reset()
@@ -1523,6 +1590,12 @@ class iparser (object):
 		mainsave = mainfile
 		if extname == '.mak':
 			mainfile = ''
+		cfg = self.config.config.get('default', {})
+		for name in ('prebuild', 'prelink', 'postbuild'):
+			body = cfg.get(name, '').strip('\r\n\t ').split('&&')
+			for script in body:
+				script = script.strip('\r\n\t ')
+				self.push_event(name, script)
 		if os.path.exists(makefile) and makefile:
 			self.makefile = makefile
 			if self.scan_makefile() != 0:
@@ -1777,12 +1850,12 @@ class iparser (object):
 			self.mode = command[-3:]
 			retval = self._process_src(body, fname, lineno)
 			return retval
-		if command in ('swf', 'swc'):
+		if command in ('swf', 'swc', 'elf'):
 			self.mode = 'exe'
 			if not self.out:
 				self.out = os.path.splitext(fname)[0] + '.' + command
 			if not self.int:
-				self.int = os.path.abspath('obj/alchemy')
+				self.int = os.path.abspath(os.path.join('objs', self.config.target))
 			body = body.strip('\r\n\t ')
 			if command == 'swf':
 				self.push_flnk('-emit-swf')
@@ -1798,11 +1871,13 @@ class iparser (object):
 				elif body:
 					self.error('error: %s: bad size'%body, fname, lineno)
 					return -1
-			else:
+			elif command == 'swc':
 				if not body:
 					self.error('error: namespace empty', fname, lineno)
 					return -1
 				self.push_flnk('-emit-swc=' + body.strip('\t\n\r '))
+			else:
+				return self._process_src(body, fname, lineno)
 			return 0
 		if command in ('imp', 'import'):
 			for name in body.replace(';', ',').split(','):
@@ -1824,6 +1899,21 @@ class iparser (object):
 			return 0
 		if command == 'color':
 			self.console(int(body.strip('\r\n\t '), 0))
+			return 0
+		if command == 'prebuild':
+			self.push_event('prebuild', body)
+			return 0
+		if command == 'prelink':
+			self.push_event('prelink', body)
+			return 0
+		if command == 'postbuild':
+			self.push_event('postbuild', body)
+			return 0
+		if command == 'environ':
+			for name in body.replace(';', ',').split(','):
+				name = name.strip('\r\n\t ')
+				k, v = (name.split('=') + ['',''])[:2]
+				self.push_environ(k.strip('\r\n\t '), v.strip('\r\n\t '))
 			return 0
 		self.error('error: %s: invalid command'%command, fname, lineno)
 		return -1
@@ -2045,17 +2135,27 @@ class emake (object):
 	def open (self, mainfile):
 		self.reset()
 		self.config.init()
+		environ = {}
+		cfg = self.config.config
+		if 'environ' in cfg:
+			for k, v in cfg['environ'].items():
+				environ[k.upper()] = v
 		retval = self.parser.parse(mainfile)
 		if retval != 0:
 			return -1
 		parser = self.parser
-		self.coremake.init(parser.out, parser.mode, parser.int)
+		self.coremake.init(mainfile, parser.out, parser.mode, parser.int)
 		#print 'open', parser.out, parser.mode, parser.int
 		for src in self.parser:
 			obj = self.parser[src]
 			self.coremake.push(src, obj)
 		if self._config() != 0:
 			return -2
+		self.coremake._environ = {}
+		for k, v in environ.items():
+			self.coremake._environ[k] = v
+		for k, v in self.parser.environ.items():
+			self.coremake._environ[k] = v
 		self.dependence.process()
 		self.loaded = 1
 		return 0
@@ -2105,6 +2205,7 @@ class emake (object):
 					dirty += 1
 		if dirty:
 			self.coremake.remove(self.parser.out)
+			self.coremake.event(self.parser.events.get('prebuild', []))
 		cpus = self.config.cpus
 		if self.cpus >= 0:
 			cpus = self.cpus
@@ -2127,7 +2228,10 @@ class emake (object):
 				break
 		if update:
 			self.coremake.remove(self.parser.out)
+			self.coremake.event(self.parser.events.get('prelink', []))
 		retval = self.coremake.link(True, self.parser.info)
+		if retval:
+			self.coremake.event(self.parser.events.get('postbuild', []))
 		return retval
 	
 	def build (self, printmode = -1):
@@ -2429,7 +2533,7 @@ def main(argv = None):
 			break
 
 	if len(argv) == 1:
-		version = '(emake v3.26 Dec.19 2013 %s)'%sys.platform
+		version = '(emake v3.30 Feb.09 2014 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
