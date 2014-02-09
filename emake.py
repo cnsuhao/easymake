@@ -1395,6 +1395,10 @@ class coremake(object):
 		environ['EMMAIN'] = self._main
 		environ['EMPATH'] = os.path.dirname(self._main)
 		environ['EMMODE'] = self._mode
+		environ['EMMAINN'] = os.path.splitext(self._main)[0]
+		environ['EMMAINE'] = os.path.splitext(self._main)[1]
+		environ['EMOUTN'] = os.path.splitext(self._out)[0]
+		environ['EMOUTE'] = os.path.splitext(self._out)[1]
 		for k, v in environ.items():	# 展开宏
 			environ[k] = self.config._expand(environ, envsave, k, v)
 		for k, v in environ.items():
