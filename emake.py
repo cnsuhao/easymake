@@ -438,6 +438,7 @@ class configure(object):
 					lowsect, lowkey = sect.lower(), key.lower()
 					self.config.setdefault(lowsect, {})[lowkey] = val
 					config.setdefault(lowsect, {})[lowkey] = val
+			self.config['default'] = self.config.get('default', {})
 			config['default'] = config.get('default', {})
 			inihome = os.path.abspath(os.path.split(inipath)[0])
 			dirhome = config['default'].get('home', '')
@@ -452,6 +453,17 @@ class configure(object):
 				if not exename in config['default']:
 					continue
 				self.exename[exename] = config['default'][exename]
+			for bp in ('include', 'lib'):
+				if not bp in config['default']:
+					continue
+				data = []
+				for n in config['default'][bp].replace(';', ',').split(','):
+					n = os.path.normpath(os.path.join(inihome, self.pathconf(n)))
+					if not self.unix: n = n.replace('\\', '/')
+					data.append("'" + n + "'")
+				text = ','.join(data)
+				config['default'][bp] = text
+				self.config['default'][bp] = text
 			self.haveini = True
 		return 0
 
