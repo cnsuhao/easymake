@@ -1397,7 +1397,7 @@ class coremake(object):
 		environ['EMMODE'] = self._mode
 		environ['EMMAINN'] = os.path.splitext(self._main)[0]
 		environ['EMMAINE'] = os.path.splitext(self._main)[1]
-		environ['EMMAINP'] = os.path.dirhome(self._main)
+		environ['EMMAINP'] = os.path.dirname(self._main)
 		environ['EMOUTN'] = os.path.splitext(self._out)[0]
 		environ['EMOUTE'] = os.path.splitext(self._out)[1]
 		environ['EMOUTP'] = os.path.dirname(self._out)
