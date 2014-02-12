@@ -1158,6 +1158,7 @@ class coremake(object):
 	
 	# 创建目录
 	def mkdir (self, path):
+		path = os.path.abspath(path)
 		if os.path.exists(path):
 			return 0
 		name = ''
