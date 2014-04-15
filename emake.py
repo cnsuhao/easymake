@@ -18,6 +18,7 @@
 # 2012.09.09   skywind   new system condition config, optimized
 # 2013.12.19   skywind   new $(target) config
 # 2014.02.09   skywind   new build-event and environ
+# 2014.04.15   skywind   new 'arglink' and 'argcc' config
 #
 #======================================================================
 import sys, time, os
@@ -1842,12 +1843,18 @@ class iparser (object):
 						fname, lineno)
 				self.push_flag(srcname)
 			return 0
-		if command in ('flnk', 'linkflag', 'lflag', 'ld', 'flaglink', 'flink'):
+		if command in ('flnk', 'linkflag', 'ld', 'flaglink', 'flink'):
 			for name in body.replace(';', ',').split(','):
 				srcname = self.pathconf(name)
 				if not srcname:
 					continue
 				self.push_flnk(srcname)
+			return 0
+		if command in ('arglink', 'al'):
+			self.push_flnk(body.strip('\r\n\t '))
+			return 0
+		if command in ('argcc', 'ac'):
+			self.push_flag(body.strip('\r\n\t '))
 			return 0
 		if command == 'define':
 			for name in body.replace(';', ',').split(','):
@@ -2466,7 +2473,7 @@ def update():
 	return 0
 
 def help():
-	print "Emake v3.25 Dec.19 2013"
+	print "Emake v3.31 Apr.15 2014"
 	print "By providing a completely new way to build your projects, Emake"
 	print "is a easy tool which controls the generation of executables and other"
 	print "non-source files of a program from the program's source files. "
@@ -2554,7 +2561,7 @@ def main(argv = None):
 			break
 
 	if len(argv) == 1:
-		version = '(emake v3.30 Feb.09 2014 %s)'%sys.platform
+		version = '(emake v3.31 Apr.15 2014 %s)'%sys.platform
 		print 'usage: "emake.py [option] srcfile" %s'%version
 		print 'options  :  -b | -build      build project'
 		print '            -c | -compile    compile project'
