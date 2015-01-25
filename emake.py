@@ -876,8 +876,14 @@ class configure(object):
 		if 0:
 			os.system(cmd)
 			return ''
-		import subprocess
-		if 'Popen' in subprocess.__dict__:
+		routine = False
+		try:
+			import subprocess
+			if 'Popen' in subprocess.__dict__:
+				routine = True
+		except:
+			routine = False
+		if routine:
 			import shlex
 			if not self.unix:
 				ucs = False
