@@ -309,6 +309,8 @@ class configure(object):
 			self.GetShortPathName = None
 		if sys.platform[:6] == 'darwin':
 			self.xlink = 0
+		if sys.platform[:3] == 'aix':
+			self.xlink = 0
 		self.cpus = 0
 		self.inited = False
 		self.fpic = 0
