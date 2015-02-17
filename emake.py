@@ -1218,6 +1218,14 @@ class configure(object):
 			jni = os.path.join(pp, 'jni.h')
 			if os.path.exists(jni):
 				return self.__java_final(pp)
+		if self.unix:
+			for i in xrange(20, 7, -1):
+				n = '/usr/local/openjdk%d/include'%i
+				if os.path.exists(os.path.join(n, 'jni.h')):
+					return self.__java_final(n)
+				n = '/usr/jdk/instances/jdk1.%d.0/include'%i
+				if os.path.exists(os.path.join(n, 'jni.h')):
+					return self.__java_final(n)
 		return ''
 
 
